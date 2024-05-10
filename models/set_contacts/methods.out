@@ -1,0 +1,59 @@
+/Users/gref/FRED/bin/fred_delete: KEY = contacts  JOB = 696
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/696 deleted
+fred_compile contacts.fred ...
+No errors found.
+No warnings.
+
+contacts 697
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/697/WORK/contacts.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/697/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/697/OUT/RUN1/LOG)
+fred_plot: source_file = plot-urban-contacts=1.plt  image_file = urban-contacts=1.pdf
+/Users/gref/FRED/bin/fred_delete: KEY = contacts-0.5  JOB = 694
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/694 deleted
+fred_compile contacts-0.5.fred ...
+No errors found.
+No warnings.
+
+contacts-0.5 698
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/698/WORK/contacts-0.5.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/698/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/698/OUT/RUN1/LOG)
+fred_plot: source_file = plot-urban-contacts=0.5.plt  image_file = urban-contacts=0.5.pdf
+fred_plot: source_file = plot-urban-contacts=1-contacts=0.5.plt  image_file = urban-contacts=1-contacts=0.5.pdf
+fred_plot: source_file = plot-urban-n-contacts=1-contacts=0.5.plt  image_file = urban-n-contacts=1-contacts=0.5.pdf
+/Users/gref/FRED/bin/fred_delete: KEY = contacts-proportional  JOB = 695
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/695 deleted
+fred_compile contacts-proportional.fred ...
+No errors found.
+No warnings.
+
+contacts-proportional 699
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/699/WORK/contacts-proportional.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/699/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/699/OUT/RUN1/LOG)
+fred_plot: source_file = plot-urban-contacts=proportional.plt  image_file = urban-contacts=proportional.pdf
+fred_plot: source_file = plot-urban-contacts=1-contacts=proportional.plt  image_file = urban-contacts=1-contacts=proportional.pdf
+fred_plot: source_file = plot-urban-n-contacts=1-contacts=proportional.plt  image_file = urban-n-contacts=1-contacts=proportional.pdf
+/Users/gref/FRED/bin/fred_delete: KEY = contacts  JOB = 697
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/697 deleted
+fred_compile contacts.fred ...
+No errors found.
+
+contacts 700
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/700/WORK/contacts.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/700/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/700/OUT/RUN1/LOG)
+fred_plot: source_file = plot-rural-contacts=1.plt  image_file = rural-contacts=1.pdf
+/Users/gref/FRED/bin/fred_delete: KEY = contacts-0.5  JOB = 698
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/698 deleted
+fred_compile contacts-0.5.fred ...
+No errors found.
+
+contacts-0.5 701
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/701/WORK/contacts-0.5.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/701/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/701/OUT/RUN1/LOG)
+fred_plot: source_file = plot-rural-contacts=0.5.plt  image_file = rural-contacts=0.5.pdf
+fred_plot: source_file = plot-rural-contacts=1-contacts=0.5.plt  image_file = rural-contacts=1-contacts=0.5.pdf
+fred_plot: source_file = plot-rural-n-contacts=1-contacts=0.5.plt  image_file = rural-n-contacts=1-contacts=0.5.pdf
+/Users/gref/FRED/bin/fred_delete: KEY = contacts-proportional  JOB = 699
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/699 deleted
+fred_compile contacts-proportional.fred ...
+No errors found.
+
+contacts-proportional 702
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/702/WORK/contacts-proportional.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/702/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/702/OUT/RUN1/LOG)
+fred_plot: source_file = plot-rural-contacts=proportional.plt  image_file = rural-contacts=proportional.pdf
+fred_plot: source_file = plot-rural-contacts=1-contacts=proportional.plt  image_file = rural-contacts=1-contacts=proportional.pdf
+fred_plot: source_file = plot-rural-n-contacts=1-contacts=proportional.plt  image_file = rural-n-contacts=1-contacts=proportional.pdf

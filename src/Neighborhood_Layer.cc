@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -22,25 +22,34 @@
 //
 // File: Neighborhood_Layer.cc
 //
-#include <utility>
+#include <algorithm>
 #include <list>
 #include <string>
+#include <utility>
 #include <vector>
-#include <algorithm>
-using namespace std;
 
-#include "Global.h"
+#include <spdlog/spdlog.h>
+
 #include "Geo.h"
+#include "Global.h"
+#include "Household.h"
 #include "Neighborhood_Layer.h"
 #include "Neighborhood_Patch.h"
-#include "Place_Type.h"
+#include "Parser.h"
 #include "Place.h"
-#include "Property.h"
+#include "Place_Type.h"
 #include "Random.h"
-#include "Utils.h"
-#include "Household.h"
 #include "Regional_Layer.h"
+#include "Utils.h"
 
+bool Neighborhood_Layer::is_log_initialized = false;
+std::string Neighborhood_Layer::neighborhood_layer_log_level = "";
+std::unique_ptr<spdlog::logger> Neighborhood_Layer::neighborhood_layer_logger = nullptr;
+
+/**
+ * Creates a Neighborhood_Layer with default variables. Sets up the grid 
+ * to cover the global simulation region.
+ */
 Neighborhood_Layer::Neighborhood_Layer() {
   char property[FRED_STRING_SIZE];
 
@@ -54,84 +63,93 @@ Neighborhood_Layer::Neighborhood_Layer() {
   this->max_x = base_grid->get_max_x();
   this->max_y = base_grid->get_max_y();
 
-  this->offset = NULL;
-  this->gravity_cdf = NULL;
+  this->offset = nullptr;
+  this->gravity_cdf = nullptr;
   this->max_offset = 0;
 
   // determine patch size for this layer
   strcpy(property, "Neighborhood.patch_size");
-  if(Property::does_property_exist(property)) {
-    Property::get_property("Neighborhood.patch_size", &this->patch_size);
+  if(Parser::does_property_exist(property)) {
+    Parser::get_property("Neighborhood.patch_size", &this->patch_size);
   } else {
-    Property::get_property("Neighborhood_patch_size", &this->patch_size);
+    Parser::get_property("Neighborhood_patch_size", &this->patch_size);
   }
 
   // determine number of rows and cols
-  this->rows = (double)(this->max_y - this->min_y) / this->patch_size;
+  this->rows = static_cast<double>(this->max_y - this->min_y) / this->patch_size;
   if(this->min_y + this->rows * this->patch_size < this->max_y) {
-    this->rows++;
+    ++this->rows;
   }
 
-  this->cols = (double)(this->max_x - this->min_x) / this->patch_size;
+  this->cols = static_cast<double>(this->max_x - this->min_x) / this->patch_size;
   if(this->min_x + this->cols * this->patch_size < this->max_x) {
-    this->cols++;
+    ++this->cols;
+  }
+    
+  if(Global::Compile_FRED && this->rows < 0) {
+    this->rows = 1;
+  }
+      
+  if(Global::Compile_FRED && this->cols < 0) {
+    this->cols = 1;
   }
 
-  if(Global::Verbose > 0) {
-    fprintf(Global::Statusfp, "Neighborhood_Layer min_lon = %f\n", this->min_lon);
-    fprintf(Global::Statusfp, "Neighborhood_Layer min_lat = %f\n", this->min_lat);
-    fprintf(Global::Statusfp, "Neighborhood_Layer max_lon = %f\n", this->max_lon);
-    fprintf(Global::Statusfp, "Neighborhood_Layer max_lat = %f\n", this->max_lat);
-    fprintf(Global::Statusfp, "Neighborhood_Layer rows = %d  cols = %d\n", this->rows, this->cols);
-    fprintf(Global::Statusfp, "Neighborhood_Layer min_x = %f  min_y = %f\n", this->min_x, this->min_y);
-    fprintf(Global::Statusfp, "Neighborhood_Layer max_x = %f  max_y = %f\n", this->max_x, this->max_y);
-    fflush(Global::Statusfp);
-  }
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer min_lon = {:f}", this->min_lon);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer min_lat = {:f}", this->min_lat);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer max_lon = {:f}", this->max_lon);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer max_lat = {:f}", this->max_lat);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer rows = {:d}  cols = {:d}", 
+      this->rows, this->cols);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer min_x = {:f}  min_y = {:f}", 
+      this->min_x, this->min_y);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Neighborhood_Layer max_x = {:f}  max_y = {:f}", 
+      this->max_x, this->max_y);
 
   // setup patches
-  this->grid = new Neighborhood_Patch *[this->rows];
+  this->grid = new Neighborhood_Patch*[this->rows];
   for(int i = 0; i < this->rows; ++i) {
     this->grid[i] = new Neighborhood_Patch[this->cols];
     for(int j = 0; j < this->cols; ++j) {
       this->grid[i][j].setup(this, i, j);
     }
   }
-  // FRED_VERBOSE(0, "setup neighborhood patches finished for %d rows and %d cols\n", this->rows, this->cols);
 
   // properties to determine neighborhood visitation patterns
   strcpy(property, "Neighborhood.max_distance");
-  if(Property::does_property_exist(property)) {
-    Property::get_property("Neighborhood.max_distance", &this->max_distance);
+  if(Parser::does_property_exist(property)) {
+    Parser::get_property("Neighborhood.max_distance", &this->max_distance);
   } else {
-    Property::get_property("Neighborhood_max_distance", &this->max_distance);
+    Parser::get_property("Neighborhood_max_distance", &this->max_distance);
   }
   strcpy(property, "Neighborhood.max_destinations");
-  if(Property::does_property_exist(property)) {
-    Property::get_property("Neighborhood.max_destinations", &this->max_destinations);
+  if(Parser::does_property_exist(property)) {
+    Parser::get_property("Neighborhood.max_destinations", &this->max_destinations);
   } else {
-    Property::get_property("Neighborhood_max_destinations", &this->max_destinations);
+    Parser::get_property("Neighborhood_max_destinations", &this->max_destinations);
   }
   strcpy(property, "Neighborhood.min_distance");
-  if(Property::does_property_exist(property)) {
-    Property::get_property("Neighborhood.min_distance", &this->min_distance);
+  if(Parser::does_property_exist(property)) {
+    Parser::get_property("Neighborhood.min_distance", &this->min_distance);
   } else {
-    Property::get_property("Neighborhood_min_distance", &this->min_distance);
+    Parser::get_property("Neighborhood_min_distance", &this->min_distance);
   }
   strcpy(property, "Neighborhood.distance_exponent");
-  if(Property::does_property_exist(property)) {
-    Property::get_property("Neighborhood.distance_exponent", &this->dist_exponent);
+  if(Parser::does_property_exist(property)) {
+    Parser::get_property("Neighborhood.distance_exponent", &this->dist_exponent);
   } else {
-    Property::get_property("Neighborhood_distance_exponent", &this->dist_exponent);
+    Parser::get_property("Neighborhood_distance_exponent", &this->dist_exponent);
   }
   strcpy(property, "Neighborhood.population_exponent");
-  if(Property::does_property_exist(property)) {
-    Property::get_property("Neighborhood.population_exponent", &this->pop_exponent);
+  if(Parser::does_property_exist(property)) {
+    Parser::get_property("Neighborhood.population_exponent", &this->pop_exponent);
   } else {
-    Property::get_property("Neighborhood_population_exponent", &this->pop_exponent);
+    Parser::get_property("Neighborhood_population_exponent", &this->pop_exponent);
   }
-
 }
 
+/**
+ * Sets up a Neighborhood_Patch for each cell in the grid.
+ */
 void Neighborhood_Layer::setup() {
 
   int type = Place_Type::get_type_id("Neighborhood");
@@ -142,55 +160,74 @@ void Neighborhood_Layer::setup() {
       if(this->grid[i][j].get_houses() > 0) {
         this->grid[i][j].make_neighborhood(type);
       }
-    }
-  }
-
-  if(Global::Verbose > 1) {
-    for(int i = 0; i < this->rows; ++i) {
-      for(int j = 0; j < this->cols; ++j) {
-        printf("print grid[%d][%d]:\n", i, j);
-        this->grid[i][j].print();
-      }
+      Neighborhood_Layer::neighborhood_layer_logger->trace("<{:s}, {:d}>: grid[{:d}][{:d}]: {:s}", __FILE__, __LINE__, i, j, this->grid[i][j].to_string());
     }
   }
 }
 
+/**
+ * Prepares this neighborhood layer.
+ */
 void Neighborhood_Layer::prepare() {
-  FRED_VERBOSE(0, "Neighborhood_Layer prepare entered\n");
-  record_activity_groups();
-  FRED_VERBOSE(0, "setup gravity model ...\n");
-  setup_gravity_model();
-  FRED_VERBOSE(0, "setup gravity model complete\n");
-  FRED_VERBOSE(0, "Neighborhood_Layer prepare finished\n");
+  Neighborhood_Layer::neighborhood_layer_logger->info("Neighborhood_Layer prepare entered");
+  this->record_activity_groups();
+  Neighborhood_Layer::neighborhood_layer_logger->info("setup gravity model ...");
+  this->setup_gravity_model();
+  Neighborhood_Layer::neighborhood_layer_logger->info("setup gravity model complete");
+  Neighborhood_Layer::neighborhood_layer_logger->info("Neighborhood_Layer prepare finished");
 }
 
+/**
+ * Gets the Neighborhood_Patch in the grid in which a specified Place 
+ * is located.
+ *
+ * @param place the place
+ * @return the neighborhood patch
+ */
 Neighborhood_Patch* Neighborhood_Layer::get_patch(Place* place) {
-  return get_patch(place->get_latitude(), place->get_longitude());
+  return this->get_patch(place->get_latitude(), place->get_longitude());
 }
 
+/**
+ * Gets the Neighborhood_Patch in the grid at the given row and column.
+ *
+ * @param row the row
+ * @param col the column
+ * @return the neighborhood patch
+ */
 Neighborhood_Patch* Neighborhood_Layer::get_patch(int row, int col) {
   if(row >= 0 && col >= 0 && row < this->rows && col < this->cols) {
     return &this->grid[row][col];
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 
+/**
+ * Gets the Neighborhood_Patch in the grid at the given latitude and longitude.
+ *
+ * @param lat the latitude
+ * @param lon the longitude
+ * @return the neighborhood patch
+ */
 Neighborhood_Patch* Neighborhood_Layer::get_patch(fred::geo lat, fred::geo lon) {
-  int row = get_row(lat);
-  int col = get_col(lon);
-  return get_patch(row, col);
+  int row = this->get_row(lat);
+  int col = this->get_col(lon);
+  return this->get_patch(row, col);
 }
 
+/**
+ * Performs quality control on the grid.
+ */
 void Neighborhood_Layer::quality_control() {
-  FRED_STATUS(0, "grid quality control check\n");
+  Neighborhood_Layer::neighborhood_layer_logger->info("grid quality control check");
 
   int popsize = 0;
   int tot_occ_patches = 0;
-  for(int row = 0; row < this->rows; row++) {
+  for(int row = 0; row < this->rows; ++row) {
     int min_occ_col = this->cols + 1;
     int max_occ_col = -1;
-    for(int col = 0; col < this->cols; col++) {
+    for(int col = 0; col < this->cols; ++col) {
       this->grid[row][col].quality_control();
       int patch_pop = this->grid[row][col].get_popsize();
       if(patch_pop > 0) {
@@ -211,9 +248,9 @@ void Neighborhood_Layer::quality_control() {
 
   if(Global::Verbose > 1) {
     char filename[FRED_STRING_SIZE];
-    sprintf(filename, "%s/grid.dat", Global::Simulation_directory);
+    snprintf(filename, FRED_STRING_SIZE, "%s/grid.dat", Global::Simulation_directory);
     FILE *fp = fopen(filename, "w");
-    for(int row = 0; row < rows; row++) {
+    for(int row = 0; row < rows; ++row) {
       if(row % 2) {
         for(int col = this->cols - 1; col >= 0; col--) {
           double x = this->grid[row][col].get_center_x();
@@ -231,43 +268,51 @@ void Neighborhood_Layer::quality_control() {
     fclose(fp);
   }
 
-  if(Global::Verbose > 0) {
-    int total_area = this->rows * this->cols;
-    int convex_area = tot_occ_patches;
-    fprintf(Global::Statusfp, "Density: popsize = %d total region = %d total_density = %f\n", popsize,
-        total_area, (total_area > 0) ? (double)popsize / (double)total_area : 0.0);
-    fprintf(Global::Statusfp, "Density: popsize = %d convex region = %d convex_density = %f\n", popsize,
-        convex_area, (convex_area > 0) ? (double)popsize / (double)convex_area : 0.0);
-    fprintf(Global::Statusfp, "grid quality control finished\n");
-    fflush(Global::Statusfp);
-  }
+  int total_area = this->rows * this->cols;
+  int convex_area = tot_occ_patches;
+  
+  // The following two lines print to the log file and are needed by fred_job
+  fprintf(Global::Statusfp, "Density: popsize = %d total region = %d total_density = %f\n", popsize,
+      total_area, (total_area > 0) ? static_cast<double>(popsize) / static_cast<double>(total_area) : 0.0);
+  fprintf(Global::Statusfp, "Density: popsize = %d convex region = %d convex_density = %f\n", popsize,
+      convex_area, (convex_area > 0) ? static_cast<double>(popsize) / static_cast<double>(convex_area) : 0.0);
+  
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Density: popsize = {:d} total region = {:d} total_density = {:f}", 
+      popsize, total_area, (total_area > 0) ? static_cast<double>(popsize) / static_cast<double>(total_area) : 0.0);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("Density: popsize = {:d} convex region = {:d} convex_density = {:f}", 
+      popsize, convex_area, (convex_area > 0) ? static_cast<double>(popsize) / static_cast<double>(convex_area) : 0.0);
+  Neighborhood_Layer::neighborhood_layer_logger->debug("grid quality control finished");
+
 }
 
+/**
+ * Performs quality control on the grid.
+ *
+ * @param min_x _UNUSED_
+ * @param min_y _UNUSED_
+ */
 void Neighborhood_Layer::quality_control(double min_x, double min_y) {
-  if(Global::Verbose > 0) {
-    fprintf(Global::Statusfp, "grid quality control check\n");
-    fflush(Global::Statusfp);
-  }
+  Neighborhood_Layer::neighborhood_layer_logger->info("grid quality control check");
 
-  for(int row = 0; row < this->rows; row++) {
-    for(int col = 0; col < this->cols; col++) {
+  for(int row = 0; row < this->rows; ++row) {
+    for(int col = 0; col < this->cols; ++col) {
       this->grid[row][col].quality_control();
     }
   }
 
   if(Global::Verbose > 1) {
     char filename[FRED_STRING_SIZE];
-    sprintf(filename, "%s/grid.dat", Global::Simulation_directory);
+    snprintf(filename, FRED_STRING_SIZE, "%s/grid.dat", Global::Simulation_directory);
     FILE *fp = fopen(filename, "w");
-    for(int row = 0; row < rows; row++) {
+    for(int row = 0; row < rows; ++row) {
       if(row % 2) {
-        for(int col = this->cols - 1; col >= 0; col--) {
+        for(int col = this->cols - 1; col >= 0; --col) {
           double x = this->grid[row][col].get_center_x();
           double y = this->grid[row][col].get_center_y();
           fprintf(fp, "%f %f\n", x, y);
         }
       } else {
-        for(int col = 0; col < this->cols; col++) {
+        for(int col = 0; col < this->cols; ++col) {
           double x = this->grid[row][col].get_center_x();
           double y = this->grid[row][col].get_center_y();
           fprintf(fp, "%f %f\n", x, y);
@@ -277,48 +322,64 @@ void Neighborhood_Layer::quality_control(double min_x, double min_y) {
     fclose(fp);
   }
 
-  if(Global::Verbose > 0) {
-    fprintf(Global::Statusfp, "grid quality control finished\n");
-    fflush(Global::Statusfp);
-  }
+  Neighborhood_Layer::neighborhood_layer_logger->info("grid quality control finished");
 }
 
+/**
+ * Gets the number of neighborhoods in the grid. This will be the number of patches in the grid 
+ * that have at least one Household.
+ *
+ * @return the number of neighborhoods
+ */
 int Neighborhood_Layer::get_number_of_neighborhoods() {
   int n = 0;
-  for(int row = 0; row < this->rows; row++) {
-    for(int col = 0; col < this->cols; col++) {
-      if(this->grid[row][col].get_houses() > 0)
-        n++;
+  for(int row = 0; row < this->rows; ++row) {
+    for(int col = 0; col < this->cols; ++col) {
+      if(this->grid[row][col].get_houses() > 0) {
+        ++n;
+      }
     }
   }
   return n;
 }
 
+/**
+ * Records activity groups and prepares each Neighborhood_Patchh in the grid with at least one Household.
+ */
 void Neighborhood_Layer::record_activity_groups() {
-  FRED_VERBOSE(0, "record_daily_activities entered\n");
-  for(int row = 0; row < this->rows; row++) {
-    for(int col = 0; col < this->cols; col++) {
-      Neighborhood_Patch * patch = (Neighborhood_Patch *)&this->grid[row][col];
-      if(patch != NULL) {
-        if (patch->get_houses() > 0) {
+  Neighborhood_Layer::neighborhood_layer_logger->info("record_daily_activities entered");
+  for(int row = 0; row < this->rows; ++row) {
+    for(int col = 0; col < this->cols; ++col) {
+      Neighborhood_Patch* patch = static_cast<Neighborhood_Patch*>(&this->grid[row][col]);
+      if(patch != nullptr) {
+        if(patch->get_houses() > 0) {
           patch->record_activity_groups();
           patch->prepare();
         }
       }
     }
   }
-  FRED_VERBOSE(0, "record_daily_activities finished\n");
+  Neighborhood_Layer::neighborhood_layer_logger->info("record_daily_activities finished");
 }
 
-// Comparison used to sort by probability
-static bool compare_pair( const pair<double,int>& p1, const pair<double,int>& p2) {
+/**
+ * Compares two pairs. This comparison is used to sort by probability.
+ *
+ * @param p1 the first pair
+ * @param p2 the second pair
+ * @return the result of the comparison
+ */
+static bool compare_pair(const std::pair<double, int>&p1, const std::pair<double, int>&p2) {
   return ((p1.first == p2.first) ? (p1.second < p2.second) : (p1.first > p2.first));
 }
 
+/**
+ * Sets up the gravity model. This will be used when selecting destination patches; neighborhood residents 
+ * will gravitate towards more populated patches when venturing out of their own.
+ */
 void Neighborhood_Layer::setup_gravity_model() {
-  int tmp_offset[256*256];
-  double tmp_prob[256*256];
-  int mark[256*256];
+  int tmp_offset[256 * 256];
+  double tmp_prob[256 * 256];
   int count = 0;
 
   // print_distances();  // DEBUGGING
@@ -331,7 +392,7 @@ void Neighborhood_Layer::setup_gravity_model() {
   }
 
   if(this->max_distance < 0) {
-    setup_null_gravity_model();
+    this->setup_null_gravity_model();
     return;
   }
 
@@ -341,8 +402,8 @@ void Neighborhood_Layer::setup_gravity_model() {
   for(int i = 0; i < this->rows; ++i) {
     for(int j = 0; j < this->cols; ++j) {
       // set up gravity model for grid[i][j];
-      Neighborhood_Patch * patch = (Neighborhood_Patch *)&grid[i][j];
-      assert(patch != NULL);
+      Neighborhood_Patch* patch = static_cast<Neighborhood_Patch*>(&grid[i][j]);
+      assert(patch != nullptr);
       double x_src = patch->get_center_x();
       double y_src = patch->get_center_y();
       int pop_src = patch->get_popsize();
@@ -358,8 +419,8 @@ void Neighborhood_Layer::setup_gravity_model() {
             continue;
           }
 
-          Neighborhood_Patch* dest_patch = (Neighborhood_Patch*)&this->grid[ii][jj];
-          assert (dest_patch != NULL);
+          Neighborhood_Patch* dest_patch = static_cast<Neighborhood_Patch*>(&this->grid[ii][jj]);
+          assert(dest_patch != nullptr);
           int pop_dest = dest_patch->get_popsize();
           if(pop_dest == 0) {
             continue;
@@ -373,7 +434,7 @@ void Neighborhood_Layer::setup_gravity_model() {
           }
 
           double gravity = pow(pop_dest, this->pop_exponent) / (1.0 + pow(dist / this->min_distance, this->dist_exponent));
-          int off = 256*(i - ii + this->max_offset) + (j - jj + this->max_offset);
+          int off = 256 * (i - ii + this->max_offset) + (j - jj + this->max_offset);
 
           /*
            * consider income similarity in gravity model
@@ -392,7 +453,7 @@ void Neighborhood_Layer::setup_gravity_model() {
       // sort by gravity value
       this->sort_pair.clear();
       for(int k = 0; k < count; ++k) {
-        this->sort_pair.push_back(pair <double,int> (tmp_prob[k], tmp_offset[k]));
+        this->sort_pair.push_back(std::pair<double, int>(tmp_prob[k], tmp_offset[k]));
       }
       std::sort(this->sort_pair.begin(), this->sort_pair.end(), compare_pair);
 
@@ -433,26 +494,27 @@ void Neighborhood_Layer::setup_gravity_model() {
   }
 }
 
+/**
+ * Prints the gravity model.
+ */
 void Neighborhood_Layer::print_gravity_model() {
-  printf("\n=== GRAVITY MODEL ========================================================\n");
-  for(int i_src = 0; i_src < rows; i_src++) {
-    for(int j_src = 0; j_src < cols; j_src++) {
-      Neighborhood_Patch * src_patch = (Neighborhood_Patch *)&grid[i_src][j_src];
+  Neighborhood_Layer::neighborhood_layer_logger->info("=== GRAVITY MODEL ========================================================");
+  for(int i_src = 0; i_src < rows; ++i_src) {
+    for(int j_src = 0; j_src < cols; ++j_src) {
+      Neighborhood_Patch* src_patch = static_cast<Neighborhood_Patch*>(&grid[i_src][j_src]);
       double x_src = src_patch->get_center_x();
       double y_src = src_patch->get_center_y();
       int pop_src = src_patch->get_popsize();
       if(pop_src == 0) {
         continue;
       }
-      int count = (int)this->offset[i_src][j_src].size();
+      int count = static_cast<int>(this->offset[i_src][j_src].size());
       for(int k = 0; k < count; ++k) {
         int off = this->offset[i_src][j_src][k];
-        printf("GRAVITY_MODEL row %3d col %3d pop %5d count %4d k %4d offset %d ", i_src, j_src, pop_src, count, k, off);
         int i_dest = i_src + this->max_offset - (off / 256);
         int j_dest = j_src + this->max_offset - (off % 256);
-        printf("row %3d col %3d ", i_dest, j_dest);
         Neighborhood_Patch* dest_patch = this->get_patch(i_dest, j_dest);
-        assert (dest_patch != NULL);
+        assert(dest_patch != nullptr);
         double x_dest = dest_patch->get_center_x();
         double y_dest = dest_patch->get_center_y();
         double dist = sqrt((x_src-x_dest)*(x_src-x_dest) + (y_src - y_dest) * (y_src - y_dest));
@@ -461,20 +523,23 @@ void Neighborhood_Layer::print_gravity_model() {
         if(k > 0) {
           gravity_prob -= this->gravity_cdf[i_src][j_src][k-1];
         }
-        printf("pop %5d dist %0.4f prob %f", pop_dest, dist, gravity_prob);
-        printf("\n");
+        Neighborhood_Layer::neighborhood_layer_logger->info(
+            "GRAVITY_MODEL row {:3d} col {:3d} pop {:5d} count {:4d} k {:4d} offset {:d} row {:3d} col {:3d} pop {:5d} dist {:0.4f} prob {:f}", 
+            i_src, j_src, pop_src, count, k, off, i_dest, j_dest, pop_dest, dist, gravity_prob);
       }
-      printf("\n");
     }
   }
 }
 
+/**
+ * Prints the distances to destination patches to the all_distances.dat file.
+ */
 void Neighborhood_Layer::print_distances() {
   FILE *fp;
   fp = fopen("all_distances.dat", "w");
   for(int i_src = 0; i_src < this->rows; ++i_src) {
     for(int j_src = 0; j_src < this->cols; ++j_src) {
-      Neighborhood_Patch* src_patch = (Neighborhood_Patch*)&this->grid[i_src][j_src];
+      Neighborhood_Patch* src_patch = static_cast<Neighborhood_Patch*>(&this->grid[i_src][j_src]);
       double x_src = src_patch->get_center_x();
       double y_src = src_patch->get_center_y();
       int pop_src = src_patch->get_popsize();
@@ -493,7 +558,7 @@ void Neighborhood_Layer::print_distances() {
           fprintf(fp,"row %3d col %3d pop %5d ", i_src, j_src, pop_src);
           fprintf(fp,"row %3d col %3d ", i_dest, j_dest);
           Neighborhood_Patch* dest_patch = this->get_patch(i_dest, j_dest);
-          assert (dest_patch != NULL);
+          assert(dest_patch != nullptr);
           double x_dest = dest_patch->get_center_x();
           double y_dest = dest_patch->get_center_y();
           double dist = sqrt((x_src-x_dest)*(x_src-x_dest) + (y_src - y_dest) * (y_src - y_dest));
@@ -507,9 +572,12 @@ void Neighborhood_Layer::print_distances() {
   exit(0);
 }
 
+/**
+ * Sets up the gravity model as null.
+ */
 void Neighborhood_Layer::setup_null_gravity_model() {
-  int tmp_offset[256*256];
-  double tmp_prob[256*256];
+  int tmp_offset[256 * 256];
+  double tmp_prob[256 * 256];
   int count = 0;
 
   this->offset = new offset_t*[this->rows];
@@ -560,8 +628,16 @@ void Neighborhood_Layer::setup_null_gravity_model() {
   }
 }
 
+/**
+ * Gets the neighborhood of a destination Neighborhood_Patch that is randomly selected based on gravity models 
+ * given a source neighborhood.
+ *
+ * @param src_neighborhood the source neighborhood
+ * @return the destination neighborhood
+ */
 Place* Neighborhood_Layer::select_destination_neighborhood(Place* src_neighborhood) {
 
+  assert(src_neighborhood != nullptr);
   Neighborhood_Patch* src_patch = this->get_patch(src_neighborhood->get_latitude(), src_neighborhood->get_longitude());
   int i_src = src_patch->get_row();
   int j_src = src_patch->get_col();
@@ -575,29 +651,25 @@ Place* Neighborhood_Layer::select_destination_neighborhood(Place* src_neighborho
   int j_dest = j_src + this->max_offset - (off % 256);
 
   Neighborhood_Patch* dest_patch = this->get_patch(i_dest, j_dest);
-  assert (dest_patch != NULL);
+  assert(dest_patch != nullptr);
 
   return dest_patch->get_neighborhood();
 }
 
 /**
- * Adds a pointer to a Place to this Neighborhood Layer. A patch in this Layer's Grid will be found using the Neighborhood.patch_size and the
- * Min and Max latitude and longitude of this Layer.
+ * Adds a specified place to the Neighborhood_Patch that it is located within. This will also set the Place's patch.
  *
- * If a Place has a latitude and/or longitude that is outside of the range of this layer
- * (this->min_lat, this->max_lat) (this->min_lon, this->max_lon) then a warning will be issued and the place will not be added to a patch and
- * the place's patch will be set to NULL.
- *
- * @param place a pointer to the place that we want to add to this layer
+ * @param place the place
  */
 void Neighborhood_Layer::add_place(Place* place) {
-  int row = get_row(place->get_latitude());
-  int col = get_col(place->get_longitude());
+  int row = this->get_row(place->get_latitude());
+  int col = this->get_col(place->get_longitude());
   Neighborhood_Patch* patch = Global::Neighborhoods->get_patch(row, col);
-  if(patch == NULL) {
+  if(patch == nullptr) {
     // Raised the verbosity to a 1 since we really don't want this filling up the LOG file
-    FRED_VERBOSE(1, "WARNING: place %d %s has bad patch,  lat = %f (not in [%f, %f])  lon = %f (not in [%f, %f])\n", place->get_id(), place->get_label(),
-        place->get_latitude(), this->min_lat, this->max_lat,
+    Neighborhood_Layer::neighborhood_layer_logger->warn(
+        "WARNING: place {:d} {:s} has bad patch,  lat = {:f} (not in [{:f}, {:f}])  lon = {:f} (not in [{:f}, {:f}])", 
+        place->get_id(), place->get_label(), place->get_latitude(), this->min_lat, this->max_lat, 
         place->get_longitude(), this->min_lon, this->max_lon);
   } else {
     patch->add_place(place);
@@ -605,3 +677,29 @@ void Neighborhood_Layer::add_place(Place* place) {
   place->set_patch(patch);
 }
 
+/**
+ * Initialize the class-level logging
+ * Initializes the static logger if it has not been created yet
+ */
+void Neighborhood_Layer::setup_logging() {
+  if(Neighborhood_Layer::is_log_initialized) {
+    return;
+  }
+
+  Parser::get_property("neighborhood_layer_log_level", &Neighborhood_Layer::neighborhood_layer_log_level);
+
+  try {
+    spdlog::sinks_init_list sink_list = {Global::StdoutSink, Global::ErrorFileSink, 
+        Global::DebugFileSink, Global::TraceFileSink};
+    Neighborhood_Layer::neighborhood_layer_logger = std::make_unique<spdlog::logger>("neighborhood_layer_logger", 
+        sink_list.begin(), sink_list.end());
+    Neighborhood_Layer::neighborhood_layer_logger->set_level(
+        Utils::get_log_level_from_string(Neighborhood_Layer::neighborhood_layer_log_level));
+  } catch(const spdlog::spdlog_ex& ex) {
+    Utils::fred_abort("ERROR --- Log initialization failed:  %s\n", ex.what());
+  }
+
+  Neighborhood_Layer::neighborhood_layer_logger->trace("<{:s}, {:d}>: Neighborhood_Layer logger initialized", 
+      __FILE__, __LINE__  );
+  Neighborhood_Layer::is_log_initialized = true;
+}

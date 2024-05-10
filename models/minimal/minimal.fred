@@ -1,0 +1,12 @@
+
+# Example of a minimal FRED model
+
+# Simulated Location: a small county in Pennsylvania
+locations = Jefferson_County_PA
+
+# Simulated Time Frame
+start_date = 2020-Jan-01
+end_date = 2020-Jan-10
+
+# Condition:
+condition ACTIVE {}

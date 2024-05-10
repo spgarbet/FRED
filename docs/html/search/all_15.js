@@ -1,0 +1,19 @@
+var searchData=
+[
+  ['vaccination_5frate_1585',['vaccination_rate',['../class_place.html#a38d272e20ce274e2cb4de54cb6d16c10',1,'Place']]],
+  ['value_5fon_5fday_1586',['value_on_day',['../structreport__t.html#a5871da512f322e7c00d08c8a8356a687',1,'report_t']]],
+  ['verbose_1587',['Verbose',['../class_global.html#a5bde931f1f3b19965ca66e93c9b3394d',1,'Global']]],
+  ['verify_5fbrackets_1588',['verify_brackets',['../class_parser.html#a5a96252441b2f80bcb0c472a1e86aff6',1,'Parser']]],
+  ['verify_5fpop_5fdirectory_1589',['verify_pop_directory',['../class_place.html#a25f068ba505020cbb414977a3fb303bd',1,'Place']]],
+  ['vis_5fcase_5ffatality_5floc_5flist_1590',['vis_case_fatality_loc_list',['../class_epidemic.html#ad58536b89142e68fad2bfe038ae7b017',1,'Epidemic']]],
+  ['vis_5fdormant_5floc_5flist_1591',['vis_dormant_loc_list',['../class_epidemic.html#a67bd658b853c7fbabc9aced4f42faf0a',1,'Epidemic']]],
+  ['vis_5flocation_1592',['VIS_Location',['../class_v_i_s___location.html',1,'VIS_Location'],['../class_v_i_s___location.html#a8a4f7e84a4dd183adce3f430dbc8173c',1,'VIS_Location::VIS_Location()']]],
+  ['visualization_1593',['Visualization',['../class_global.html#a1f98ceb8afbe2e69849d44b55789ecd9',1,'Global']]],
+  ['visualization_5fdirectory_1594',['Visualization_directory',['../class_global.html#a4a0490efa8a71d424c40f956eeb67aa0',1,'Global']]],
+  ['visualization_5fdirectory_1595',['visualization_directory',['../class_epidemic.html#a976272c1466420ba9dee21de03d982c2',1,'Epidemic']]],
+  ['visualization_5flayer_1596',['Visualization_Layer',['../class_visualization___layer.html',1,'Visualization_Layer'],['../class_visualization___layer.html#ae7382db5382be9d941d6f2588b79df62',1,'Visualization_Layer::Visualization_Layer()']]],
+  ['visualization_5fpatch_1597',['Visualization_Patch',['../class_visualization___patch.html',1,'Visualization_Patch'],['../class_visualization___patch.html#ad23f2bc85934daeb62f84355d7d41a02',1,'Visualization_Patch::Visualization_Patch()']]],
+  ['visualization_5frun_1598',['Visualization_Run',['../class_global.html#a25a838ac0a7a0317d78fbec4b596f14a',1,'Global']]],
+  ['visualize_5fstate_1599',['visualize_state',['../class_epidemic.html#a3421655271f3b0c5dd9a8456de1e68df',1,'Epidemic']]],
+  ['visualize_5fstate_5fplace_5ftype_1600',['visualize_state_place_type',['../class_epidemic.html#a398ef1f35b5910faffbf942a3099d1ef',1,'Epidemic']]]
+];

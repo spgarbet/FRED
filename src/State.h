@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -29,10 +29,18 @@
 
 #include <vector>
 #include <unordered_map>
-using namespace std;
 
 #include "Admin_Division.h"
 
+/**
+ * This class represents a state division, which is a higher division of a County.
+ *
+ * States exist in the FRED simulation in order to accurately model the real world. 
+ * Their functionality is lacking in comparison to other divisions, but they allow 
+ * the logging of state specific data.
+ *
+ * This class inherits from Admin_Division.
+ */
 class State : public Admin_Division {
 public:
 
@@ -40,10 +48,21 @@ public:
 
   ~State();
 
+  /**
+   * Gets the number of State objects in the static states vector.
+   *
+   * @return the number of states
+   */
   static int get_number_of_states() {
     return State::states.size();
   }
 
+  /**
+   * Gets the State at the specified index in the static states vector.
+   *
+   * @param i the index
+   * @return the state
+   */
   static State* get_state_with_index(int i) {
     return State::states[i];
   }
@@ -54,7 +73,7 @@ private:
 
   // static variables
   static std::vector<State*> states;
-  static std::unordered_map<long long int,State*> lookup_map;
+  static std::unordered_map<long long int, State*> lookup_map;
 
 };
 

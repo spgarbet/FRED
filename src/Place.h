@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -29,7 +29,8 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
-using namespace std;
+
+#include <spdlog/spdlog.h>
 
 #include "Geo.h"
 #include "Global.h"
@@ -48,6 +49,16 @@ class Neighborhood_Patch;
 class Person;
 class School;
 
+/**
+ * This class represents a place in the simulation which might host activities that agents of the simulation 
+ * engage in.
+ *
+ * Place adds functionality to Group specific to locations, such as a geographic location, data dependent on the type of place, 
+ * and partitions. Partitions are subsets of a place that are simply other places. A Place object can have as many partitions associated 
+ * with it as needed, and, if it is a partition itself, will have a container specified, which is the place that it was partitioned from. 
+ *
+ * This class inherits from Group, and is inherited by Household and Hospital.
+ */
 class Place : public Group {
 
  public:
@@ -61,10 +72,13 @@ class Place : public Group {
   static char SUBTYPE_MOBILE_HEALTHCARE_CLINIC;
 
   /**
-   * Constructor with default properties
+   * Constructor with default properties.
    */
   Place(const char* lab = "", int _type_id = 0, fred::geo lon = 0.0, fred::geo lat = 0.0);
 
+  /**
+   * Default destructor.
+   */
   virtual ~Place() {}
 
   virtual void print(int condition_id);
@@ -74,78 +88,177 @@ class Place : public Group {
   void prepare_vaccination_rates();
 
   // test place types
+
+  /**
+   * Gets the place type ID of this place.
+   *
+   * @return the place type ID
+   */
+  int get_place_type_id() {
+    return this->type_id;
+  }
+
+  /**
+   * Checks if this place's Place_Type is "household".
+   *
+   * @return if this place is a household
+   */
   bool is_household() {
     return this->type_id == Place_Type::get_type_id("Household");
   }
   
+  /**
+   * Checks if this place's Place_Type is "neighborhood".
+   *
+   * @return if this place is a neighborhood
+   */  
   bool is_neighborhood() {
     return this->type_id == Place_Type::get_type_id("Neighborhood");
   }
   
+  /**
+   * Checks if this place's Place_Type is "school".
+   *
+   * @return if this place is a school
+   */  
   bool is_school() {
     return this->type_id == Place_Type::get_type_id("School");
   }
   
+  /**
+   * Checks if this place's Place_Type is "classroom".
+   *
+   * @return if this place is a classroom
+   */  
   bool is_classroom() {
     return this->type_id == Place_Type::get_type_id("Classroom");
   }
   
+  /**
+   * Checks if this place's Place_Type is "workplace".
+   *
+   * @return if this place is a workplace
+   */  
   bool is_workplace() {
     return this->type_id == Place_Type::get_type_id("Workplace");
   }
   
+
+  /**
+   * Checks if this place's Place_Type is "office".
+   *
+   * @return if this place is a office
+   */  
   bool is_office() {
     return this->type_id == Place_Type::get_type_id("Office");
   }
   
+  /**
+   * Checks if this place's Place_Type is "hospital".
+   *
+   * @return if this place is a hospital
+   */  
   bool is_hospital() {
     return this->type_id == Place_Type::get_type_id("Hospital");
   }
   
   // test place subtypes
+
+  /**
+   * Checks if this place's subtype is a college.
+   *
+   * @return if this place is a college
+   */
   bool is_college() {
     return this->get_subtype() == Place::SUBTYPE_COLLEGE;
   }
   
+  /**
+   * Checks if this place's subtype is a prison.
+   *
+   * @return if this place is a prison
+   */  
   bool is_prison() {
     return this->get_subtype() == Place::SUBTYPE_PRISON;
   }
-  
+
+  /**
+   * Checks if this place's subtype is a nursing home.
+   *
+   * @return if this place is a nursing home
+   */  
   bool is_nursing_home() {
     return this->get_subtype() == Place::SUBTYPE_NURSING_HOME;
   }
   
+  /**
+   * Checks if this place's subtype is a nursing military base.
+   *
+   * @return if this place is a nursing military base
+   */    
   bool is_military_base() {
     return this->get_subtype() == Place::SUBTYPE_MILITARY_BASE;
   }
-    
+
+  /**
+   * Checks if this place's subtype is a healthcare clinic.
+   *
+   * @return if this place is a healthcare clinic
+   */  
   bool is_healthcare_clinic() {
     return this->get_subtype() == Place::SUBTYPE_HEALTHCARE_CLINIC;
   }
 
+  /**
+   * Checks if this place's subtype is a mobile healthcare clinic.
+   *
+   * @return if this place is a mobile healthcare clinic
+   */  
   bool is_mobile_healthcare_clinic() {
     return this->get_subtype() == Place::SUBTYPE_MOBILE_HEALTHCARE_CLINIC;
   }
-    
+
+  /**
+   * Checks if this place is a group quarters. This will be true if this place is a college, prison, 
+   * military base, or nursing home.
+   *
+   * @return if this place is a group quarters
+   */  
   bool is_group_quarters() {
-    return (is_college() || is_prison() || is_military_base() || is_nursing_home());
+    return (this->is_college() || this->is_prison() || this->is_military_base() || this->is_nursing_home());
   }
 
   // test for household types
+
+  /**
+   * Checks if this place is a college dorm. This will be true if it is both a Household and a college.
+   *
+   * @return if this place is a college dorm
+   */
   bool is_college_dorm(){
-    return is_household() && is_college();
+    return this->is_household() && this->is_college();
   }
   
+  /**
+   * Checks if this place is a prison cell. This will be true if it is both a Household and a prison.
+   *
+   * @return if this place is a prison cell
+   */  
   bool is_prison_cell(){
-    return is_household() && is_prison();
+    return this->is_household() && this->is_prison();
   }
   
+  /**
+   * Checks if this place is a military barracks. This will be true if it is both a Household and a military base.
+   *
+   * @return if this place is a military barracks
+   */  
   bool is_military_barracks() {
-    return is_household() && is_military_base();
+    return this->is_household() && this->is_military_base();
   }
 
   /**
-   * Get the latitude.
+   * Gets the latitude of this place.
    *
    * @return the latitude
    */
@@ -154,7 +267,7 @@ class Place : public Group {
   }
 
   /**
-   * Get the longitude.
+   * Gets the longitude of this place.
    *
    * @return the longitude
    */
@@ -164,6 +277,13 @@ class Place : public Group {
 
   static double distance_between_places(Place* p1, Place* p2);
 
+  /**
+   * Gets the distance from this place to the specified Place using the distance forumula with each place's 
+   * global x and y values.
+   *
+   * @param place the place
+   * @return the distance
+   */
   double get_distance(Place* place) {
     double x1 = this->get_x();
     double y1 = this->get_y();
@@ -174,36 +294,36 @@ class Place : public Group {
   }
 
   /**
-   * Set the latitude.
+   * Sets the latitude of this place.
    *
-   * @property x the new latitude
+   * @param x the latitude
    */
   void set_latitude(double x) {
     this->latitude = x;
   }
 
   /**
-   * Set the longitude.
+   * Sets the longitude of this place.
    *
-   * @property x the new longitude
+   * @param x the longitude
    */
   void set_longitude(double x) {
     this->longitude = x;
   }
 
   /**
-   * Get the patch where this place is.
+   * Get the Neighborhood_Patch in which this place is located.
    *
-   * @return a pointer to the patch where this place is
+   * @return the patch
    */
   Neighborhood_Patch* get_patch() {
     return this->patch;
   }
 
   /**
-   * Set the patch where this place will be.
-   *
-   * @property p the new patch
+   * Set the Neighborhood_Patch in which this place is located.
+   * 
+   * @param p the patch
    */
   void set_patch(Neighborhood_Patch* p) {
     this->patch = p;
@@ -212,20 +332,40 @@ class Place : public Group {
   void turn_workers_into_teachers(Place* school);
   void reassign_workers(Place* place);
 
+  /**
+   * Gets the global x value of this place.
+   *
+   * @return the global x value
+   */
   double get_x() {
     return Geo::get_x(this->longitude);
   }
 
+  /**
+   * Gets the global y value of this place.
+   *
+   * @return the global y value
+   */
   double get_y() {
     return Geo::get_y(this->latitude);
   }
 
+  /**
+   * Gets the latitude halfway between the static minimum and maximum latitudes.
+   *
+   * @return the mean latitude
+   */
   static double get_mean_latitude() {
-    return 0.5*(Place::min_lat + Place::max_lat);
+    return 0.5 * (Place::min_lat + Place::max_lat);
   }
 
+  /**
+   * Gets the longitude halfway between the static minimum and maximum longitudes.
+   *
+   * @return the mean longitude
+   */
   static double get_mean_longitude() {
-    return 0.5*(Place::min_lon + Place::max_lon);
+    return 0.5 * (Place::min_lon + Place::max_lon);
   }
 
   static void update_elevations();
@@ -234,14 +374,29 @@ class Place : public Group {
 
   void set_partition_elevation(double elev);
 
+  /**
+   * Gets the elevation of this place.
+   *
+   * @return the elevation
+   */
   double get_elevation() {
     return this->elevation;
   }
 
+  /**
+   * Gets the staff size of this place. This is the amount of outside workers.
+   *
+   * @return the staff size
+   */
   int get_staff_size() {
     return this->staff_size;
   }
   
+  /**
+   * Sets the staff size of this place. This is the amount of outside workers.
+   *
+   * @param _staff_size the staff size
+   */  
   void set_staff_size(int _staff_size) {
     this->staff_size = _staff_size;
   }
@@ -256,10 +411,20 @@ class Place : public Group {
 
   Block_Group* get_block_group();
 
+  /**
+   * Gets the admin code for this place. This will be the admin code of the Block_Group in which this place is located.
+   *
+   * @return the admin code
+   */
   long long int get_admin_code() {
     return this->admin_code;
   }
 
+  /**
+   * Sets the admin code for this place. This will be the admin code of the Block_Group in which this place is located.
+   *
+   * @param _admin_code the admin code
+   */
   void set_admin_code(long long int _admin_code) {
     this->admin_code = _admin_code;
   }
@@ -270,53 +435,106 @@ class Place : public Group {
 
   double get_seeds(int dis, int sim_day);
 
+  /**
+   * Gets this place's Place_Type.
+   *
+   * @return the place type
+   */
   Place_Type* get_place_type() {
     return Place_Type::get_place_type(this->type_id);
   }
 
+  /**
+   * _UNUSED_
+   *
+   * @param condition_id _UNUSED_
+   * @param i _UNUSED_
+   * @param s _UNUSED_
+   */
   double get_transmission_prob(int condition_id, Person* i, Person* s) {
     return 1.0;
   }
 
+  int get_max_size();
 
-  void setup_partitions(int partition_type_id, int partition_capacity, string partition_basis, int min_age_partition, int max_age_partition);
+  void setup_partitions(int partition_type_id, int partition_capacity, std::string partition_basis, int min_age_partition, int max_age_partition);
 
   Place* select_partition(Person* person);
 
+  /**
+   * Gets the number of partitions of this place. This will be the size of the partitions place vector.
+   *
+   * @return the number of partitions
+   */
   int get_number_of_partitions() {
-    return this->partitions.size();
+    return static_cast<int>(this->partitions.size());
   }
 
+  /**
+   * Gets the number of partitions for the specified age.
+   *
+   * @param age the age
+   * @return the number of partitions
+   */
   int get_number_of_partitions_by_age(int age) {
-    return this->partitions_by_age[age].size();
+    return static_cast<int>(this->partitions_by_age[age].size());
   }
 
+  /**
+   * Gets the sum of the sizes of all partitions of the specified age.
+   *
+   * @param age the age
+   * @return the total size
+   */
   int get_size_by_age(int age) {
     int n = get_number_of_partitions_by_age(age);
     int size = 0;
     for(int i = 0; i < n; ++i) {
-      size += partitions_by_age[age][i]->get_size();
+      size += static_cast<int>(partitions_by_age[age][i]->get_size());
     }
     return size;
   }
 
+  /**
+   * Gets the original size of a partition by age for the specified age.
+   *
+   * @param age the age
+   * @return the original size
+   */
   int get_original_size_by_age(int age) {
     return this->original_size_by_age[age];
   }
 
+  /**
+   * Sets this place's container to the specified Place. The container is the place from which this place was partitioned.
+   *
+   * @param place the place
+   */
   void set_container(Place* place) {
     this->container = place;
   }
 
+  /**
+   * Gets the size of this place's container.
+   *
+   * @return the size
+   */
   int get_container_size() {
     return this->container->get_size();
   }
 
+  /**
+   * Gets the partition at the specified index in the partitions vector. The container is the Place from which this place was 
+   * partitioned.
+   *
+   * @param i the index
+   * @return the partition
+   */
   Place* get_partition(int i) {
     if(0 <= i && i < this->get_number_of_partitions()) {
       return this->partitions[i];
     } else {
-      return NULL;
+      return nullptr;
     }
   }
 
@@ -332,9 +550,16 @@ class Place : public Group {
   static void read_gq_places(const char* loc_id);
   static void get_elevation_data();
   static Place* add_place(char* label, int place_type_id, char subtype, fred::geo lon, fred::geo lat, double elevation, long long int census_tract);
+
+  /**
+   * Adds the specified Place to the static place list vector.
+   *
+   * @param place the place
+   */
   static void save_place(Place* place) {
     Place::place_list.push_back(place);
   }
+
   static Place* get_place_from_sp_id(long long int n);
   static void quality_control();
   static void reassign_workers();
@@ -345,11 +570,18 @@ class Place : public Group {
   static void setup_partitions();
   static void setup_block_groups();
   static void setup_counties();
+
+  /**
+   * Gets a new place ID and increments the next place ID.
+   *
+   * @return the ID
+   */
   static int get_new_place_id() {
     int id = Place::next_place_id;
-    ++(Place::next_place_id);
+    ++Place::next_place_id;
     return id;
   }
+
   static void assign_hospitals_to_households();
 
   // reporting methods
@@ -371,41 +603,25 @@ class Place : public Group {
   static Place* get_random_workplace();
   static Place* get_random_school(int grade);
 
-  /**
-   * Uses a gravity model to find a random open hospital given the search properties.
-   * The location must allows overnight stays (have a subtype of NONE)
-   * @property sim_day the simulation day
-   * @property per the person we are trying to match (need the agent's household for distance and possibly need the agent's insurance)
-   * @property check_insurance whether or not to use the agent's insurance in the matching
-   */
-  static Hospital* get_random_open_hospital_matching_criteria(int sim_day, Person* per, bool check_insurance);
-
-  /**
-   * Uses a gravity model to find a random open healthcare location given the search properties.
-   * The search is ambivalent about the location allowing overnight stays.
-   * @property sim_day the simulation day
-   * @property per the person we are trying to match (need the agent's household for distance and possibly need the agent's insurance)
-   * @property check_insurance whether or not to use the agent's insurance in the matching
-   * @property use_search_radius_limit whether or not to cap the search radius
-   */
-  static Hospital* get_random_open_healthcare_facility_matching_criteria(int sim_day, Person* per, bool check_insurance, bool use_search_radius_limit);
-
-  /**
-   * Uses a gravity model to find a random open healthcare location given the search properties.
-   * The search is ambivalent about the location allowing overnight stays, but it must be open on sim_day 0
-   * @property per the person we are trying to match (need the agent's household for distance and possibly need the agent's insurance)
-   * @property check_insurance whether or not to use the agent's insurance in the matching
-   * @property use_search_radius_limit whether or not to cap the search radius
-   */
-  static Hospital* get_random_primary_care_facility_matching_criteria(Person* per, bool check_insurance, bool use_search_radius_limit);
   static void finish();
 
   // access methods
 
+  /**
+   * Gets the admin code for the specified Place's County.
+   *
+   * @param place the place
+   * @return the county admin code
+   */
   static int get_county_for_place(Place* place) {
     return place->get_county_admin_code();
   }
 
+  /**
+   * Checks if the load is completed for places.
+   *
+   * @return if load is completed
+   */
   static bool is_load_completed() {
     return Place::load_completed;
   }
@@ -416,28 +632,58 @@ class Place : public Group {
 
   static void print_stats(int day);
 
+  /**
+   * Increments the Hospital_ID_current_assigned_size_map at the specified hospital ID.
+   *
+   * @param hospital_id the hospital ID
+   */
   static void increment_hospital_ID_current_assigned_size_map(int hospital_id) {
     Place::Hospital_ID_current_assigned_size_map.at(hospital_id)++;
   }
 
   // access function for places by type
 
+  /**
+   * Gets the total number of households.
+   *
+   * @return the number of households
+   */
   static int get_number_of_households() {
     return Place_Type::get_household_place_type()->get_number_of_places();
   }
 
+  /**
+   * Gets the total number of neighborhoods.
+   *
+   * @return the number of neighborhoods
+   */
   static int get_number_of_neighborhoods() {
     return Place_Type::get_neighborhood_place_type()->get_number_of_places();
   }
 
+  /**
+   * Gets the total number of schools.
+   *
+   * @return the number of schools
+   */
   static int get_number_of_schools() {
     return Place_Type::get_school_place_type()->get_number_of_places();
   }
   
+  /**
+   * Gets the total number of workplaces.
+   *
+   * @return the number of workplaces
+   */  
   static int get_number_of_workplaces() {
     return Place_Type::get_workplace_place_type()->get_number_of_places();
   }
 
+  /**
+   * Gets the total number of hospitals.
+   *
+   * @return the number of hospitals
+   */
   static int get_number_of_hospitals() {
     return Place_Type::get_hospital_place_type()->get_number_of_places();
   }
@@ -448,49 +694,92 @@ class Place : public Group {
   static Place* get_workplace(int i);
   static Hospital* get_hospital(int i);
 
+  /**
+   * Gets the number of location IDs.
+   *
+   * @return the number of location IDs
+   */
   static int get_number_of_location_ids() {
-    return location_id.size();
+    return Place::location_id_vec.size();
   }
 
+  /**
+   * Gets the population directory for a location ID at the specified index.
+   *
+   * @param pop_dir the population directory buffer
+   * @param i the index
+   */
   static void get_population_directory(char* pop_dir, int i) {
-    assert (0 <= i && i < Place::location_id.size());
-    sprintf(pop_dir, "%s/%s/%s/%s",
-        Place::Population_directory,
-        Place::Country,
-        Place::Population_version,
-        Place::get_location_id(i));
+    assert(0 <= i && i < static_cast<int>(Place::location_id_vec.size()));
+    snprintf(pop_dir, FRED_STRING_SIZE, "%s/%s/%s/%s", Place::Population_directory,
+      Place::Country, Place::Population_version, Place::get_location_id(i));
   }
 
+  /**
+   * Gets the country directory.
+   *
+   * @param dir the directory buffer
+   */
   static void get_country_directory(char* dir) {
-    sprintf(dir, "%s/%s",
-        Place::Population_directory,
-        Place::Country);
+    snprintf(dir, FRED_STRING_SIZE, "%s/%s", Place::Population_directory, Place::Country);
   }
 
-  static const char * get_location_id(int i) {
-    if(0 <= i && i < Place::location_id.size()) {
-      return Place::location_id[i].c_str();
+  /**
+   * Gets the location ID at the specified index in the static location ID vector.
+   *
+   * @param i the index
+   * @return the location ID
+   */
+  static const char* get_location_id(int i) {
+    if(0 <= i && i < static_cast<int>(Place::location_id_vec.size())) {
+      return Place::location_id_vec[i].c_str();
     } else {
-      return NULL;
+      return nullptr;
     }
   }
 
+  /**
+   * Checks if the country is the USA.
+   *
+   * @return if country is USA
+   */
   static bool is_country_usa() {
     return Place::country_is_usa;
   }
 
+  /**
+   * Checks if the country is Colombia.
+   *
+   * @return if country is Colombia
+   */
   static bool is_country_colombia() {
     return Place::country_is_colombia;
   }
 
+  /**
+   * Checks if the country is India.
+   *
+   * @return if country is India
+   */
   static bool is_country_india() {
     return Place::country_is_india;
   }
 
+  /**
+   * Gets the number of state admin codes in the static state admin code vector.
+   *
+   * @return the number of state admin codes
+   */
   static int get_number_of_state_admin_code() {
     return Place::state_admin_code.size();
   }
 
+  /**
+   * Gets the state admin code at the specified index in the static state admin code vector.
+   *
+   * @param n the index
+   * @return the state admin code
+   */
   static int get_state_admin_code_with_index(int n) {
     return Place::state_admin_code[n];;
   }
@@ -516,27 +805,40 @@ class Place : public Group {
   static void evacuate_household(Household* h);
   static void update_geo_boundaries(fred::geo lat, fred::geo lon);
   static void init_place_type_name_lookup_map();
+  static void setup_logging();
 
   bool is_open(int day);
   bool has_admin_closure();
 
+  /**
+   * Sets the vaccination rate for this place.
+   *
+   * @param rate the rate
+   */
   void set_vaccination_rate(double rate) {
     this->vaccination_rate = rate;
   }
+
+  /**
+   * Gets the vaccination rate for this place.
+   *
+   * @return the rate
+   */  
   double get_vaccination_rate() {
     return this->vaccination_rate;
   }
+
   bool is_low_vaccination_place();
 
  protected:
-  fred::geo latitude;				// geo location
-  fred::geo longitude;				// geo location
-  double elevation;				// elevation (in meters)
-  long long int admin_code;			       // block group admin code
+  fred::geo latitude;            // geo location
+  fred::geo longitude;           // geo location
+  double elevation;              // elevation (in meters)
+  long long int admin_code;      // block group admin code
 
-  int staff_size;			// outside workers in this place
+  int staff_size;                // outside workers in this place
 
-  Neighborhood_Patch* patch;		     // geo patch for this place
+  Neighborhood_Patch* patch;     // geo patch for this place
 
   place_vector_t partitions;
   place_vector_t* partitions_by_age;
@@ -588,7 +890,7 @@ class Place : public Group {
   static char Population_directory[];
   static char Country[];
   static char Population_version[];
-  static vector<string> location_id;
+  static std::vector<std::string> location_id_vec;
 
   // mean size of "household" associated with group quarters
   static double College_dorm_mean_size;
@@ -624,6 +926,11 @@ class Place : public Group {
   static double School_student_teacher_ratio;
 
   double vaccination_rate;
+
+ private:
+  static bool is_log_initialized;
+  static std::string place_log_level;
+  static std::unique_ptr<spdlog::logger> place_logger;
 };
 
 

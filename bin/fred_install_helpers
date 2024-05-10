@@ -35,7 +35,7 @@ xcode-select --install
 
 if [ -e /usr/local/bin/brew ]; then
     # use homebrew
-    brew install gnuplot --with-aquaterm --with-cairo --with-pdflib-lite
+    brew install gnuplot
     brew install ffmpeg
     brew install imagemagick
 

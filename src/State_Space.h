@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -23,8 +23,16 @@
 
 #include <string>
 #include <vector>
-using namespace std;
 
+#include <spdlog/spdlog.h>
+
+/**
+ * This class models data relating to condition states.
+ *
+ * A State_Space model is used in a Natural_History to model the differing condition states 
+ * for that natural history's Condition. It contains functionality for managing the different 
+ * condition states.
+ */
 class State_Space {
 
 public:
@@ -34,33 +42,50 @@ public:
 
   void get_properties();
 
-  void print();
-
+  /**
+   * Gets the name of this state space.
+   *
+   * @return the name
+   */
   char* get_name() {
     return this->name;
   }
 
+  /**
+   * Gets the number of condition states in this state space.
+   *
+   * @return the number of states
+   */
   int get_number_of_states() {
     return this->number_of_states;
   }
 
-  string get_state_name(int state) {
-    if (state < this->number_of_states) {
+  /**
+   * Gets the name of the specified condition state.
+   *
+   * @param state the condition state
+   * @return the state name
+   */
+  std::string get_state_name(int state) {
+    if(state < this->number_of_states) {
       return state_name[state];
-    }
-    else {
+    } else {
       return "";
     }
   }
 
-  int get_state_from_name(char* sname);
-  int get_state_from_name(string sname);
+  int get_state_from_name(std::string sname);
+  
+  static void setup_logging();
 
 private:
   char name[256];
-  char tmp[256];
   int number_of_states;
   std::vector<std::string> state_name;
+
+  static bool is_log_initialized;
+  static std::string state_space_log_level;
+  static std::unique_ptr<spdlog::logger> state_space_logger;
 };
 
 #endif

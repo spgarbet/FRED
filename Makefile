@@ -8,7 +8,7 @@
 ## Anuroop Sriram, and Donald Burke
 ## All rights reserved.
 ##
-## Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+## Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
 ## David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
 ## All rights reserved.
 ##
@@ -21,7 +21,7 @@
 ##
 ##########################################################################################
 
-DIRS = bin doc src tests
+DIRS = bin docs src tests
 FRED_HOME = $(CURDIR)
 
 all:
@@ -45,9 +45,5 @@ release:
 	make clean
 	(cd ..; tar cvzf FRED-VER_${VER}.tgz \
 	--exclude CVS --exclude '*~' --exclude '\.*' --exclude DEPENDS --exclude 'FRED/data/country/*' --exclude 'FRED/src/*.fred' --exclude 'FRED/src/*.txt' --exclude 'FRED/src/*.mp4' --exclude 'people.txt' --exclude 'household.txt' --exclude 'schools.txt' \
-	FRED/Makefile FRED/LICENSE FRED/bin FRED/doc FRED/data FRED/models \
+	FRED/Makefile FRED/LICENSE FRED/bin FRED/docs FRED/data FRED/models \
 	FRED/src FRED/tests)
-
-
-
-

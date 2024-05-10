@@ -1,0 +1,19 @@
+#!/bin/tcsh
+
+
+foreach type (rural urban)
+
+ fred_delete -f -k ${type}-density
+
+ fred_job -k ${type}-density -p ${type}-density.fred -n 4 -m 4
+
+ fred_plot -k ${type}-density -o ${type}-density -v WHERE.totH/INF.totE,WHERE.totN/INF.totE,WHERE.totS/INF.totE,WHERE.totC/INF.totE,WHERE.totW/INF.totE,WHERE.totO/INF.totE,WHERE.totX/INF.totE -l "H,N,S,C,W,O,X" -t "Place of Infection in $type county" --leg out -w -Y 0.5
+
+end
+
+fred_plot -k urban-density,rural-density -o attack -v INF.totE/Popsize,INF.totE/Popsize -t "Attack Rate with density neighborhood contacts" -l Urban,Rural -c red,blue --ylabel "Fraction of Population" --legend out
+
+fred_plot -k urban-density,rural-density -o inc -v INF.newE/Popsize,INF.newE/Popsize -t "Weekly Incidence with density neighborhood contacts" -w -l Urban,Rural -c red,blue -b --ylabel "Fraction of Population"
+
+fred_plot -k urban-density,rural-density -o nbr -v WHERE.newN/Popsize,WHERE.newN/Popsize -t "Neighborhood Transmission with density neighborhood contacts" -w -l Urban,Rural -c red,blue -b --ylabel "Fraction of Population"
+

@@ -48,7 +48,7 @@ my @arg = @ARGV;
 
 # get command line arguments
 my %options = ();
-getopts("d:p:s:n:t:C", \%options);
+getopts("d:p:s:n:t:CL", \%options);
 
 my $paramsfile = "";
 $paramsfile = $options{p} if exists $options{p};
@@ -67,8 +67,7 @@ if ($compile) {
   if (-e "$tmp_dir/errors.txt") {
     system "rm -rf $tmp_dir";
     exit;
-  }
-  else {
+  } else {
     system "rm -rf $tmp_dir";
   }
 }
@@ -103,13 +102,20 @@ my $threads = 1;
 $threads = $options{t} if exists $options{t};
 my $set_threads = "export OMP_NUM_THREADS=$threads";
 
+my $nolog = 0;
+$nolog = $options{L} if exists $options{L};
+
 my $cmd = "'run_fred @arg'";
 system "echo $cmd > $dir/COMMAND_LINE";
 for my $r ($start_run .. $end_run) {
   my $rundir = "$dir/RUN$r";
   # print "rundir = $rundir\n";
   if (not -d $rundir) { mkdir $rundir }
-  $cmd = "($set_threads ; FRED -p $paramsfile -r $r -d $dir 2>&1 > $rundir/LOG)";
+  if ($nolog && $r != $start_run) {
+    $cmd = "($set_threads ; FRED -p $paramsfile -r $r -d $dir 2>&1 > /dev/null)";
+  } else {
+    $cmd = "($set_threads ; FRED -p $paramsfile -r $r -d $dir 2>&1 > $rundir/LOG)";
+  }
   print "$cmd\n";
   system $cmd;
 }

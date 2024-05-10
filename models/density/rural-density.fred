@@ -1,0 +1,5 @@
+
+##### Simulated Location
+locations = Jefferson_County_PA
+
+include density.fred

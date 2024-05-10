@@ -1,0 +1,4 @@
+
+g++ elev.cc -o elev
+elev > elev.out
+# rm */*-old

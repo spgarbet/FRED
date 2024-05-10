@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -24,24 +24,43 @@
 //
 
 #include <unordered_set>
-#include "Global.h"
+
+#include <spdlog/spdlog.h>
+
 #include "Expression.h"
-#include "Preference.h"
+#include "Global.h"
+#include "Parser.h"
 #include "Person.h"
+#include "Preference.h"
 #include "Random.h"
 
+bool Preference::is_log_initialized = false;
+std::string Preference::preference_log_level = "";
+std::unique_ptr<spdlog::logger> Preference::preference_logger = nullptr;
+
+/**
+ * Default constructor.
+ */
 Preference::Preference() {
   this->expressions.clear();
 }
 
+/**
+ * Default destructor.
+ */
 Preference::~Preference() {
   this->expressions.clear();
 }
 
-string Preference::get_name(){
-  string result;
+/**
+ * Gets the name of this preference. This will be a combination of the names of this preference's expressions.
+ *
+ * @return the name
+ */
+std::string Preference::get_name(){
+  std::string result;
   result += "pref: ";
-  for (int i = 0; i < this->expressions.size(); i++) {
+  for(int i = 0; i < static_cast<int>(this->expressions.size()); ++i) {
     result += this->expressions[i]->get_name();
     result += "|";
   }
@@ -49,102 +68,134 @@ string Preference::get_name(){
   return result;
 }
 
-void Preference::add_preference_expressions(string expr_str) {
-  if (expr_str != "") {
+/**
+ * Adds expressions contained in the specified expression string to the expressions vector if they parse successfully.
+ *
+ * @param expr_str the expression string
+ */
+void Preference::add_preference_expressions(std::string expr_str) {
+  if(expr_str != "") {
     string_vector_t expression_strings = Utils::get_top_level_parse(expr_str, ',');
-    for (int i = 0; i < expression_strings.size(); i++) {
-      string e = expression_strings[i];
-      // printf("ADDING PREF expr %s\n", e.c_str());
+    for(int i = 0; i < static_cast<int>(expression_strings.size());++i) {
+      std::string e = expression_strings[i];
       Expression* expression = new Expression(e);
-      if (expression->parse()==false) {
-	char msg[FRED_STRING_SIZE];
-	sprintf(msg, "Bad expression: |%s|", e.c_str());
-	Utils::print_error(msg);
-	return;
-      }
-      else {
-	this->expressions.push_back(expression);
-	// printf("ADD PREF expr %s\n", expression->get_name().c_str());
+      if(expression->parse() == false) {
+        char msg[FRED_STRING_SIZE];
+        snprintf(msg, FRED_STRING_SIZE, "Bad expression: |%s|", e.c_str());
+        Utils::print_error(msg);
+        return;
+      } else {
+        this->expressions.push_back(expression);
       }
     }
   }
 }
 
+/**
+ * Selects a random Person from the given person vector based off a distribution created from the 
+ * Predicate values of the specified Person and each person in the person vector.
+ *
+ * @param person the person
+ * @param people the person vector
+ * @return the random person
+ */
 Person* Preference::select_person(Person* person, person_vector_t &people) {
   
-  FRED_VERBOSE(1, "select_person entered for person %d age %d sex %c people size %d\n",
-	       person->get_id(), person->get_age(), person->get_sex(), (int)people.size());
+  Preference::preference_logger->info(
+      "select_person entered for person {:d} age {:d} sex {:c} people size {:d}",
+      person->get_id(), person->get_age(), person->get_sex(), (int)people.size());
 
   int psize = people.size();
-  if (psize==0) {
-    return NULL;
+  if(psize == 0) {
+    return nullptr;
   }
 
   // create a cdf based on preference values
-  double cdf [ psize ];
+  double cdf[psize];
   double total = 0.0;
-  for (int i = 0; i < psize; i++) {
-    cdf[i] = get_value(person, people[i]);
+  for (int i = 0; i < psize; ++i) {
+    cdf[i] = this->get_value(person, people[i]);
     total += cdf[i];
   }
 
   // create a cumulative density distribution
-  for (int i = 0; i < psize; i++) {
-    if (total > 0) {
+  for(int i = 0; i < psize; ++i) {
+    if(total > 0) {
       cdf[i] /= total;
-    }
-    else {
+    } else {
       cdf[i] = 1.0 / psize;
     }
-    if (i > 0) {
-      cdf[i] += cdf[i-1];
+    if(i > 0) {
+      cdf[i] += cdf[i - 1];
     }
-    // printf("cdf[%d] = %f\n", i, cdf[i]);
   }
 
   // select
   double r = Random::draw_random();
   int p;
-  for (p = 0; p < psize; p++) {
-    if (r <= cdf[p]) {
+  for(p = 0; p < psize; ++p) {
+    if(r <= cdf[p]) {
       break;
     }
   }
-  if (p == psize) {
-    p = psize-1;
+  if(p == psize) {
+    p = psize - 1;
   }
   Person* other = people[p];
-  /*
-  printf("SELECT person %d age %f sex %c other person %d age %f sex %c value %f\n\n", 
-	 person->get_id(), person->get_real_age(), person->get_sex(),
-	 other->get_id(), other->get_real_age(), other->get_sex(), 
-	 p ? total*(cdf[p]-cdf[p-1]) : total*cdf[p]);
-  */
   return other;
 }
 
+/**
+ * Gets the value given two Person objects.
+ *
+ * @param person the first person
+ * @param other the other person
+ * @return the value
+ */
 double Preference::get_value(Person* person, Person* other) {
   int size = this->expressions.size();
   double numerator = 1.0;
   double denominator = 1.0;
-  for (int p = 0; p < size; p++) {
+  for(int p = 0; p < size; ++p) {
     double value = this->expressions[p]->get_value(person, other);
-    if (value > 0) {
+    if(value > 0) {
       numerator += value;
-    }
-    else {
+    } else {
       denominator += fabs(value);
     }
   }
   // note: denominator >= 1 and numerator >= 0
   double result = numerator / denominator;
-  /*
-  printf("person %d age %f sex %c other person %d age %f sex %c numer %f denom %f result %f\n", 
-	 person->get_id(), person->get_real_age(), person->get_sex(),
-	 other->get_id(), other->get_real_age(), other->get_sex(),
-	  numerator, denominator, result);
-  */
   return result;
 }
 
+/**
+ * Initialize the class-level logging
+ * Initializes the static logger if it has not been created yet
+ */
+void Preference::setup_logging() {
+  if(Preference::is_log_initialized) {
+    return;
+  }
 
+  if(Parser::does_property_exist("preference_log_level")) {
+    Parser::get_property("preference_log_level", &Preference::preference_log_level);
+  } else {
+    Preference::preference_log_level = "OFF";
+  }
+
+  try {
+    spdlog::sinks_init_list sink_list = {Global::StdoutSink, Global::ErrorFileSink, 
+        Global::DebugFileSink, Global::TraceFileSink};
+    Preference::preference_logger = std::make_unique<spdlog::logger>("preference_logger", 
+        sink_list.begin(), sink_list.end());
+    Preference::preference_logger->set_level(
+        Utils::get_log_level_from_string(Preference::preference_log_level));
+  } catch(const spdlog::spdlog_ex& ex) {
+    Utils::fred_abort("ERROR --- Log initialization failed:  %s\n", ex.what());
+  }
+
+  Preference::preference_logger->trace("<{:s}, {:d}>: Preference logger initialized", 
+      __FILE__, __LINE__  );
+  Preference::is_log_initialized = true;
+}

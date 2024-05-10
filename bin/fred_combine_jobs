@@ -79,7 +79,7 @@ if (not -d $fred_results) {
 }
 
 # set locking semaphore
-my $SEMAPHORE = ".results.lck";
+my $SEMAPHORE = ($ENV{FRED_SEMAPHORE} || ".results.lck");
 open(SEM, ">$SEMAPHORE") || die "$0 failed to obtain semaphore: ($!)\n";
 flock(SEM, LOCK_EX);
 

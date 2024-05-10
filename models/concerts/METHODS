@@ -1,0 +1,20 @@
+
+fred_delete -f -k concert
+
+fred_job -k concert -p main.fred
+
+fred_plot -o schedule -k concert -v CONCERT.Schedule -t "Concert Schedule" --legend out -l Scheduled
+
+fred_plot -o attend -k concert -v CONCERT.Attended -t "Concert Attendence"  --legend out -l Attendence
+
+fred_plot -o inc-concert -k concert -v INF.newE,WHERE.newConcert -t "Daily Infections at Concerts" --legend out -l 'Infections,At Concerts'
+
+fred_plot -o tot-concert -k concert -v INF.totE,WHERE.totConcert -t "Total Infection at Concerts" --legend out -l 'Infections,At Concerts' -w
+
+
+
+
+
+
+
+

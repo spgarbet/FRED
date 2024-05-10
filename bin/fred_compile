@@ -64,7 +64,9 @@ if ($dir eq "") {
   $dir = ".FRED_compiler";
 }
 if (not -d $dir) { mkdir $dir }
+system "rm -f $dir/*.txt";
 if (not -d "$dir/RUN1") { mkdir "$dir/RUN1" }
+system "rm -f $dir/RUN1/*.txt";
 
 `cp $program $dir` if $dir ne ".";
 
@@ -75,7 +77,7 @@ print "fred_compile $program ...\n";
 system $cmd;
 if (-e "$dir/errors.txt") {
   system "cat $dir/errors.txt";
-  print "Please fix these errors before proceeding.\n"
+  print "\nPlease fix these errors before proceeding.\n"
 }
 else {
   print "No errors found.\n";

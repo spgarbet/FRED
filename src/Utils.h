@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -26,8 +26,11 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-#include "Global.h"
 #include <stack>
+
+#include <spdlog/spdlog.h>
+
+#include "Global.h"
 
 // Conditional includes
 #ifdef LINUX
@@ -102,29 +105,54 @@
 #endif
 
 namespace Utils {
+
+//  namespace {
+//    char error_filename[FRED_STRING_SIZE];
+//    bool logfile_sinks_initialized = false;
+//    std::chrono::high_resolution_clock::time_point start_timer;
+//    std::chrono::high_resolution_clock::time_point fred_timer;
+//    std::chrono::high_resolution_clock::time_point day_timer;
+//    std::chrono::high_resolution_clock::time_point initialization_timer;
+//    std::chrono::high_resolution_clock::time_point update_timer;
+//    std::chrono::high_resolution_clock::time_point epidemic_timer;
+//
+//    std::map<std::string, spdlog::level::level_enum> log_level_map = boost::assign::map_list_of("TRACE", spdlog::level::trace)
+//        ("DEBUG", spdlog::level::debug)
+//        ("INFO", spdlog::level::info)
+//        ("WARN", spdlog::level::warn)("WARNING", spdlog::level::warn)
+//        ("ERR", spdlog::level::err)("ERROR", spdlog::level::err)
+//        ("CRITICAL", spdlog::level::critical)("FATAL", spdlog::level::critical)
+//        ("OFF", spdlog::level::off);
+//
+//    int parse_line(char* line);
+//  }
+
   bool compare_id (Person* p1, Person* p2);
   std::string delete_spaces(std::string &str);
   string_vector_t get_string_vector(std::string str, char delim);
   string_vector_t get_top_level_parse(std::string str, char delim);
   bool is_number(std::string s);
+  spdlog::level::level_enum get_log_level_from_string(std::string str);
+  spdlog::level::level_enum get_log_level_from_string(const char* c_str);
   void fred_abort(const char* format, ...);
   void fred_warning(const char* format, ...);
   void fred_open_output_files();
+  void fred_initialize_logging();
   void fred_make_directory(char* directory);
   void fred_end();
   void fred_print_wall_time(const char* format, ...);
   void fred_start_timer();
-  void fred_start_timer(high_resolution_clock::time_point* lap_start_time);
+  void fred_start_timer(std::chrono::high_resolution_clock::time_point* lap_start_time);
   void fred_start_day_timer();
   void fred_print_day_timer(int day);
   void fred_start_initialization_timer();
   void fred_print_initialization_timer();
   void fred_start_epidemic_timer();
-  void fred_print_epidemic_timer(string  msg);
+  void fred_print_epidemic_timer(std::string  msg);
   void fred_print_finish_timer();
   void fred_print_update_time(const char* format, ...);
   void fred_print_lap_time(const char* format, ...);
-  void fred_print_lap_time(high_resolution_clock::time_point* start_lap_time, const char* format, ...);
+  void fred_print_lap_time(std::chrono::high_resolution_clock::time_point* start_lap_time, const char* format, ...);
   void fred_verbose(int verbosity, const char* format, ...);
   void fred_status(int verbosity, const char* format, ...);
   void fred_log(const char* format, ...);
@@ -137,62 +165,7 @@ namespace Utils {
   bool does_path_exist(const std::string &s);
   void print_error(const std::string &msg);
   void print_warning(const std::string &msg);
-
-  // anonymous namespace allows for private methods
-  namespace
-  {
-    int parse_line(char* line) {
-      // This assumes that a digit will be found and the line ends in " Kb".
-      int i = strlen(line);
-      const char* p = line;
-      while (*p <'0' || *p > '9') {
-        p++;
-      }
-      line[i-3] = '\0';
-      i = atoi(p);
-      return i;
-    }
-
-    double get_fred_phys_mem_usg_in_gb() { //Note: this value is in GB!
-      double result = -1.0;
-
-#ifdef LINUX
-
-      FILE* file = fopen("/proc/self/status", "r");
-      char line[128];
-
-      while(fgets(line, 128, file) != NULL) {
-        if(strncmp(line, "VmRSS:", 6) == 0) {
-          result = (double)parse_line(line); //KB
-          result /= 1024.0; //MB
-          result /= 1024.0; //GB
-          break;
-        }
-      }
-      fclose(file);
-
-#elif OSX
-
-      struct task_basic_info t_info;
-      mach_msg_type_number_t t_info_count = TASK_BASIC_INFO_COUNT;
-
-      if(KERN_SUCCESS != task_info(mach_task_self(), TASK_BASIC_INFO,
-          (task_info_t)&t_info, &t_info_count)) {
-          result = -1.0;
-      } else {
-        int temp_int = t_info.resident_size;
-        result = (double)temp_int;
-        result /= 1024.0; // KB
-        result /= 1024.0; // MB
-        result /= 1024.0; // GB
-      }
-#elif WIN32
-
-#endif
-
-      return result;
-    }
-  }
+  double get_fred_phys_mem_usg_in_gb();
 }
 
 #endif /* UTILS_H_ */

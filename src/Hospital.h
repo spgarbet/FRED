@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -30,108 +30,136 @@
 #include "Person.h"
 
 /**
- * This class represents a hospital location in the FRED application. It inherits from <code>Place</code>.
- * The class contains static variables that will be filled with values from the program file.
+ * This class represents a hospital location.
  *
- * @see Place
+ * A Hospital contains specific information related to health insurace, patients, employees, 
+ * physicians, etc.
+ *
+ * This class inherits from Place.
  */
 class Hospital : public Place {
 
 public: 
-  /**
-   * Default constructor
-   */
+  
   Hospital();
+  Hospital(const char* lab, char _subtype, fred::geo lon, fred::geo lat);
 
   /**
-   * Constructor with necessary properties
+   * Default destructor.
    */
-  Hospital(const char* lab, char _subtype, fred::geo lon, fred::geo lat);
   ~Hospital() { }
 
   static void get_properties();
 
   bool is_open(int sim_day);
-
-  /**
-   *
-   * Determine if the Hospital should be open. This is independent of any condition.
-   *
-   * @property sim_day the simulation day
-   * @return whether or not the hospital is open on the given day for the given condition
-   */
   bool should_be_open(int sim_day);
-
-  /**
-   * @see Place::should_be_open(int day, int condition)
-   *
-   * Determine if the Hospital should be open. It is dependent on the condition and simulation day.
-   *
-   * @property sim_day the simulation day
-   * @property condition an integer representation of the condition
-   * @return whether or not the hospital is open on the given day for the given condition
-   */
   bool should_be_open(int sim_day, int condition);
-
-  void set_accepts_insurance(Insurance_assignment_index::e insr, bool does_accept);
-  void set_accepts_insurance(int insr_indx, bool does_accept);
-
-  bool accepts_insurance(Insurance_assignment_index::e insr) {
-    return this->accepted_insurance_bitset[static_cast<int>(insr)];
-  }
 
   int get_bed_count(int sim_day);
 
+  /**
+   * Sets the bed count.
+   *
+   * @param _bed_count the new bed count
+   */
   void set_bed_count(int _bed_count) {
     this->bed_count = _bed_count;
   }
 
+  /**
+   * Gets the employee count.
+   *
+   * @return the employee count
+   */
   int get_employee_count() {
     return this->employee_count;
   }
 
+  /**
+   * Sets the employee count.
+   *
+   * @param _employee_count the new employee count
+   */
   void set_employee_count(int _employee_count) {
     this->employee_count = _employee_count;
   }
 
+  /**
+   * Gets the physician count.
+   *
+   * @return the physician count
+   */
   int get_physician_count() {
     return this->physician_count;
   }
 
+  /**
+   * Sets the physician count.
+   *
+   * @param _physician_count the new physician count
+   */
   void set_physician_count(int _physician_count) {
     this->physician_count = _physician_count;
   }
 
   int get_daily_patient_capacity(int sim_day);
 
+  /**
+   * Sets the daily patient capacity.
+   *
+   * @param _capacity the new capacity
+   */
   void set_daily_patient_capacity(int _capacity) {
     this->daily_patient_capacity = _capacity;
   }
 
+  /**
+   * Gets the current daily patient count.
+   *
+   * @return the count
+   */
   int get_current_daily_patient_count() {
     return this->current_daily_patient_count;
   }
 
+  /**
+   * Increments the current daily patient count.
+   */
   void increment_current_daily_patient_count() {
     this->current_daily_patient_count++;
   }
 
+  /**
+   * Resets the current daily patient count.
+   */
   void reset_current_daily_patient_count() {
     this->current_daily_patient_count = 0;
   }
 
+  /**
+   * Gets the occupied bed count.
+   */
   int get_occupied_bed_count() {
     return this->occupied_bed_count;
   }
 
+  /**
+   * Increments the occupied bed count.
+   */
   void increment_occupied_bed_count() {
     this->occupied_bed_count++;
   }
 
+  /**
+   * Decrements the occupied bed count.
+   */
   void decrement_occupied_bed_count() {
     this->occupied_bed_count--;
   }
 
+  /**
+   * Resets the occupied bed count.
+   */
   void reset_occupied_bed_count() {
     this->occupied_bed_count = 0;
   }
@@ -154,10 +182,6 @@ private:
   int open_day;
   int close_day;
 
-  // true iff a the hospital accepts the indexed Insurance Coverage
-  std::bitset<static_cast<size_t>(Insurance_assignment_index::UNSET)> accepted_insurance_bitset;
-
 };
 
 #endif // _FRED_HOSPITAL_H
-

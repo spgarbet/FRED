@@ -1,0 +1,14 @@
+#!/bin/tcsh
+
+rm -f where.pdf
+
+fred_delete -f -k where
+
+fred_job -k where -p main.fred
+
+fred_plot -k where -o where -v WHERE.totH/INF.totE,WHERE.totN/INF.totE,WHERE.totS/INF.totE,WHERE.totC/INF.totE,WHERE.totW/INF.totE,WHERE.totO/INF.totE,WHERE.totX/INF.totE -l "H,N,S,C,W,O,X" -t 'Place of Infection' --leg out -w
+
+fred_plot -k where -o where-count -v WHERE.totH,WHERE.totN,WHERE.totS,WHERE.totC,WHERE.totW,WHERE.totO,WHERE.totX -l "H,N,S,C,W,O,X" -t 'Place of Infection' --leg out -w
+
+
+

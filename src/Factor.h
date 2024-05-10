@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -24,33 +24,43 @@
 #include <stdlib.h>
 #include <string>
 
-using namespace std;
+#include <spdlog/spdlog.h>
 
 class Person;
 
 typedef double (*fptr_with_0_arg) ();
 typedef double (*fptr_with_1_arg) (Person*);
-typedef double (*fptr_with_2_arg) (Person*,int);
-typedef double (*fptr_with_3_arg) (Person*,int,int);
-typedef double (*fptr_with_4_arg) (Person*,int,int,int);
-typedef double (*fptr_with_5_arg) (Person*,int,int,int,int);
-typedef double (*fptr_with_6_arg) (Person*,int,int,int,int, int);
-typedef double (*fptr_with_7_arg) (Person*,int,int,int,int, int, int);
-typedef double (*fptr_with_8_arg) (Person*,int,int,int,int, int, int, int);
-typedef double (*Fptr_with_2_arg) (Person*,Person*);
-typedef double (*Fptr_with_3_arg) (Person*,Person*,int);
+typedef double (*fptr_with_2_arg) (Person*, int);
+typedef double (*fptr_with_3_arg) (Person*, int, int);
+typedef double (*fptr_with_4_arg) (Person*, int, int, int);
+typedef double (*fptr_with_5_arg) (Person*, int, int, int, int);
+typedef double (*fptr_with_6_arg) (Person*, int, int, int, int, int);
+typedef double (*fptr_with_7_arg) (Person*, int, int, int, int, int, int);
+typedef double (*fptr_with_8_arg) (Person*, int, int, int, int, int, int, int);
+typedef double (*Fptr_with_2_arg) (Person*, Person*);
+typedef double (*Fptr_with_3_arg) (Person*, Person*, int);
 
+/**
+ * This class represents a factor in the FRED language.
+ */
 class Factor {
 public:
-
-  Factor(string s);
+  Factor(std::string s);
   bool parse();
-  string get_name();
+  std::string get_name();
   double get_value(Person* person);
   double get_value(Person* person1, Person* person2);
+
+  /**
+   * Whether or not this factor is a warning.
+   *
+   * @return is this factor a warning
+   */
   bool is_warning() {
     return this->warning;
   }
+  
+  static void setup_logging();
   
 private:
   std::string name;
@@ -77,6 +87,9 @@ private:
   static double get_random();
   static double get_normal();
   static double get_exponential();
+
+  /// Factors based on simulation run
+  static double get_sim_run();
 
   /// Factors based on time and dates
   static double get_sim_day();
@@ -144,12 +157,13 @@ private:
   static double get_id_of_min_weight_outward_edge_in_network(Person* person, int network_type_id);
   static double get_id_of_last_outward_edge_in_network(Person* person, int network_type_id);
   static double get_id_of_last_inward_edge_in_network(Person* person, int network_type_id);
-  static double is_connected(Person* person1, Person* person2, int network_type_id);
+//  static double is_connected(Person* person1, Person* person2, int network_type_id);
   static double get_network_weight(Person* person1, Person* person2, int network_type_id);
   static double get_network_timestamp(Person* person1, Person* person2, int network_type_id);
 
+  static bool is_log_initialized;
+  static std::string factor_log_level;
+  static std::unique_ptr<spdlog::logger> factor_logger;
 };
 
 #endif
-
-

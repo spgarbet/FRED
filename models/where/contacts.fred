@@ -1,0 +1,46 @@
+
+##### Simulated Location
+locations = Jefferson_County_PA
+# locations = Allegheny_County_PA
+
+##### Simulated Timeframe
+start_date = 2020-Jan-01
+end_date = 2020-Jul-01
+
+##### include the FRED influenza model
+use FRED::Influenza
+
+# include an admin agent for each neighborhood
+place Neighborhood { has_administrator = 1 }
+
+# normally admn agents are Excluded.
+# We change this for the INF condition:
+condition INF { admin_start_state = Start }
+
+# add rules to the INF condition to record where exposures occur:
+
+state INF.E {
+  if (exposed_in(INF,Household)) then set_state(WHERE,None,H)
+  if (exposed_in(INF,Neighborhood)) then set_state(WHERE,None,N)
+  if (exposed_in(INF,School)) then set_state(WHERE,None,S)
+  if (exposed_in(INF,Classroom)) then set_state(WHERE,None,C)
+  if (exposed_in(INF,Workplace)) then set_state(WHERE,None,W)
+  if (exposed_in(INF,Office)) then set_state(WHERE,None,O)
+  if (exposed_externally(INF)) then set_state(WHERE,None,X)
+}
+
+# this condition is used to report the number of people exposed in
+# each type of place:
+condition WHERE {
+  states = None H N S C W O X
+}
+
+# each agent stay in the state where it was exposed:
+state WHERE.None {}
+state WHERE.H {}
+state WHERE.N {}
+state WHERE.S {}
+state WHERE.C {}
+state WHERE.W {}
+state WHERE.O {}
+state WHERE.X {}

@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -26,6 +26,8 @@
 #ifndef _FRED_NETWORK_H
 #define _FRED_NETWORK_H
 
+#include <spdlog/spdlog.h>
+
 #include "Global.h"
 #include "Group.h"
 
@@ -33,10 +35,25 @@ class Condition;
 class Preference;
 class Network_Type;
 
+/**
+ * This class represents a network in which people interact with each other.
+ *
+ * A Network is a type of Group in which the interaction of people is, unlike a Place, 
+ * not tied to location. There is only one Network per Network_Type. Connections between 
+ * people are defined as edges, which is explained in detail in the Link class. This class 
+ * is responsible for modeling the network as a group, but links are where people are connected 
+ * to one another throughout a network.
+ *
+ * This class inherits from Group.
+ */
 class Network : public Group {
-public: 
+ public:
 
   Network(const char* lab, int _type_id, Network_Type* net_type);
+
+  /**
+   * Default destructor.
+   */
   ~Network() {}
 
   void get_properties();
@@ -54,31 +71,31 @@ public:
   bool is_undirected();
   void read_edges();
 
+  /**
+   * Gets this network's associated Network_Type.
+   *
+   * @return the network type
+   */
   Network_Type* get_network_type() {
     return this->network_type;
   }
+
   int get_time_block(int day, int hour);
-
   void add_rule(Rule* rule);
-  // bool add_pool_str(string str);
   bool is_qualified(Person* person, Person* other);
-
   const char* get_name();
-
   void print_person(Person* person, FILE* fp);
 
-  static Network* get_network(string name);
+  static Network* get_network(std::string name);
+  static void setup_logging();
 
-
-protected:
-  pair_vector_t edge;
+ protected:
   Network_Type* network_type;
-  // string_vector_t pool_str;
-  // int_vector_t pool;
-  // clause_vector_t requirements;
-  // int_vector_t restriction;
-  // int_vector_t max_dist;
+
+ private:
+  static bool is_log_initialized;
+  static std::string network_log_level;
+  static std::unique_ptr<spdlog::logger> network_logger;
 };
 
 #endif // _FRED_NETWORK_H
-

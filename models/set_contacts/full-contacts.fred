@@ -1,0 +1,15 @@
+
+##### Simulated Location
+locations = Allegheny_County_PA
+
+##### Simulated Timeframe
+start_date = 2020-Jan-01
+end_date = 2020-Jul-01
+
+##### simple influenza model:
+include inf.fred
+
+##### to report where infections occur:
+include where.fred
+
+

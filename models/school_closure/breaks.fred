@@ -1,0 +1,67 @@
+
+##### Simulated Location
+locations = Jefferson_County_PA
+
+##### Simulated Timeframe
+start_date = 2020-08-01
+end_date = 2021-07-31
+
+##### OUTPUT OPTIONS
+enable_health_records = 1
+
+##### School Administrators decide when to close schools
+place School {
+  has_administrator = 1
+}
+
+condition ADMIN {
+  states = Check Open Close WinterBreak SpringBreak SummerBreak
+  enable_health_records = 1
+  admin_start_state = Start
+}
+
+state ADMIN.Start {
+  if (admin(School)) then next(Check)
+  default(Excluded)
+}
+
+state ADMIN.Check {
+  wait(0)
+  if (date_range(Dec-20,Jan-02)) then next(WinterBreak) 
+  if (date_range(Mar-10,Mar-15)) then next(SpringBreak)
+  if (date_range(Jun-15,Aug-25)) then next(SummerBreak)
+  default(Open)
+}
+
+state ADMIN.Open {
+  wait(24)
+  if (date_range(Dec-20,Jan-02)) then next(WinterBreak) 
+  if (date_range(Mar-10,Mar-15)) then next(SpringBreak)
+  if (date_range(Jun-15,Aug-25)) then next(SummerBreak)
+  default(Open)
+}
+
+state ADMIN.Close {
+  close(School)
+  wait(24*28)
+  next(Check)
+}
+
+state ADMIN.WinterBreak {
+  close(School)
+  wait(until_Jan-03)
+  next(Open)
+}
+
+state ADMIN.SpringBreak {
+  close(School)
+  wait(until_Mar-16)
+  next(Open)
+}
+
+state ADMIN.SummerBreak {
+  close(School)
+  wait(until_Aug-26)
+  next(Open)
+}
+

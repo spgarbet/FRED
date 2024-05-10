@@ -47,31 +47,34 @@ die "$0: Please set environmental variable FRED_HOME to location of FRED home di
 my $FREDRESULTS = $ENV{FRED_RESULTS};
 $FREDRESULTS = "$ENV{FRED_HOME}/RESULTS" if not $FREDRESULTS;
 
-my $usage = "usage: $0 [ -h | -f | -k key | -p model.fred | -s start_run_number | -n end_run_number | -P | -m cores | -M multiple_cpus | -t threads]\n";
+my $usage = "usage: $0 [ -h | -f | -k key | -p model.fred | -s start_run_number | -n end_run_number | -P | -m cores | -t threads | --nolog ]\n";
 my $help = "";
+my $nolog = "";
 my $cache = "";
 my $cores = 0;
 my $force = "";
 my $key = "";
+my $key_w_dir = "";
 my $paramsfile = "";
 my $parallel = 0;
 my $start_run = "";
 my $end_run = "";
+my $is_dir_override = 0;
 my $threads = 1;
-my $multiple_cpus = 1;
 my $opt_result = GetOptions(
-			    "c" => \$cache,
-			    "f" => \$force,
-			    "h" => \$help,
-			    "help" => \$help,
-			    "k=s" => \$key,
-			    "m=i" => \$cores,
-			    "n=i" => \$end_run,
-			    "p=s" => \$paramsfile,
-			    "P" => \$parallel,
-			    "s=i" => \$start_run,
-			    "t=i" => \$threads,
-			    "M=i" => \$multiple_cpus,
+          "c" => \$cache,
+          "f" => \$force,
+          "h" => \$help,
+          "help" => \$help,
+          "nolog" => \$nolog,
+          "k=s" => \$key,
+          "K=s" => \$key_w_dir,
+          "m=i" => \$cores,
+          "n=i" => \$end_run,
+          "p=s" => \$paramsfile,
+          "P" => \$parallel,
+          "s=i" => \$start_run,
+          "t=i" => \$threads,
 );
 die $usage if $help;
 
@@ -97,28 +100,15 @@ $end_run = $start_run if $end_run eq "";
 $end_run = $start_run if $end_run < $start_run;
 my $runs = $end_run - $start_run + 1;
 
-$parallel = 1 if ($multiple_cpus > 1);
-
 # declare these in package
 my $cpus;
-my $using_pbs;
 
 # if using parallel mode, determine how many cpus to use for parallel runs
 if ($parallel) {
-  # are we running in the context of a PBS batch job?
-  my $using_pbs = (exists $ENV{PBS_RUNID}) ? 1 : 0;
-
   # intialize cpu count
   $cpus = 0;
-  if ($using_pbs) {
-    # if using PBS, look up how many cores have been requested
-    if (exists $ENV{PBS_NODEFILE} && -f $ENV{PBS_NODEFILE}) {
-      open FH, $ENV{PBS_NODEFILE};
-      $cpus++ while (<FH>);
-      close FH;
-    }
-  } elsif (-f "/proc/cpuinfo") {
-    # not using PBS so see if we can get a core count from /proc/cpuinfo
+  if (-f "/proc/cpuinfo") {
+    # see if we can get a core count from /proc/cpuinfo
     # TODO: watch out for Intel Hyper-threading cpus
     open FH, "/proc/cpuinfo";
     while (<FH>) {
@@ -133,7 +123,6 @@ if ($parallel) {
 
 if ($cores > 1) {
   $parallel = 1;
-  $using_pbs = 0;
   $cpus = $cores;
 }
 
@@ -144,7 +133,7 @@ chdir $FRED or die "Can't change to FRED directory $FRED\n";
 # system "cd src; make -s";
 
 # set locking semaphore
-my $SEMAPHORE = ".results.lck";
+my $SEMAPHORE = ($ENV{FRED_SEMAPHORE} || ".results.lck");
 open(SEM, ">$SEMAPHORE") || die "fred_job failed to obtain semaphore: ($!)\n";
 flock(SEM, LOCK_EX);
 
@@ -172,6 +161,22 @@ if (not -e "$fred_results/KEY") {
  close FH;
 }
 
+# if key_w_dir is set, then the key and the id will be the same.
+if ($key_w_dir) {
+  # Verify that key_w_dir is not an integer
+  if ($key_w_dir =~ /\d+/ && $key_w_dir !~ /\D+/) {
+    close SEM and die "fred_job: (-K) key with directory naming, $key_w_dir, can\'t be an integer.\n";
+  }
+
+  # Verify that key_w_dir is alphanumeric, "_", or "-" and has a leading alphanumeric
+  if ($key_w_dir =~ /\A[A-Za-z0-9][A-Za-z0-9_-]+\z/i) {
+    $key = $key_w_dir;
+    $is_dir_override = 1;
+  } else {
+    close SEM and die "fred_job: (-K) key with directory naming, $key_w_dir, must have a leading alpha-numeric character and may only contain alpha-numeric characters, \'_\', or \'-\'.\n";
+  }
+}
+
 # determine if key is unique. if not, terminate unless force (-f) in effect
 my $old_id = "-1";
 if ($key) {
@@ -181,11 +186,10 @@ if ($key) {
     my ($k, $i) = split;
     if ($k eq $key) {
       if ($force) {
-	$old_id = $i;
-	last;
-      }
-      else {
-	close SEM and close FH and die "fred_job: key $key already used.\n";
+        $old_id = $i;
+        last;
+      } else {
+        close SEM and close FH and die "fred_job: key $key already used.\n";
       }
     }
   }
@@ -222,8 +226,11 @@ my $id = "";
 if ($old_id > -1) {
   # use old id
   $id = $old_id;
-}
-else {
+} elsif ($is_dir_override) {
+  # Don't update the id file. Use the key as the ID too
+  $id = $key;
+  `echo $key $id >> $fred_results/KEY`;
+} else {
   # get id for this job and update counter
   open FH, "$fred_results/ID";
   $id = <FH>;
@@ -297,27 +304,34 @@ my $t = localtime();
 my $logfile = "$meta/LOG";
 
 # copy the params file for future reference
+die "Can't find $cwd/$paramsfile\n" if (not -e "$cwd/$paramsfile");
 `cp $cwd/$paramsfile $meta/PARAMS`;
+die "Can't find $FRED/data/config.fred\n" if (not -e "$FRED/data/config.fred");
 `cp $FRED/data/config.fred $meta/CONFIG.FRED`;
 
-# copy source code
 my $version = "$meta/VERSION";
-if (not -d $version) {
-  mkdir $version or die "Can't make directory $version\n";
-}
-`cp -p $FRED/src/FRED.tar.gz $version`;
-`ls -l $FRED/data > ${version}/INPUT_FILES`;
+`cp $FRED/VERSION $version`;
+
+# copy source code
+# if (not -d $version) {
+#   mkdir $version or die "Can't make directory $version\n";
+# }
+# die "Can't find $FRED/src/FRED.tar.gz\n" if (not -e "$FRED/src/FRED.tar.gz");
+# `cp -p $FRED/src/FRED.tar.gz $version`;
+# `ls -l $FRED/data > ${version}/INPUT_FILES`;
 
 # return to original directory
 chdir $cwd;
 
 # copy the input files to working directory
+die "Can't find $FRED/data/config.fred\n" if (not -e "$FRED/data/config.fred");
 `cp $FRED/data/config.fred $work/config.fred`;
 
 # get the base of the params file name
 my $params_base = $paramsfile;
 $params_base =~ s/.*\/// if $params_base =~ /\//;
 my $params = "$work/$params_base";
+die "Can't find $paramsfile\n" if (not -e "$paramsfile");
 `cp $paramsfile $params`;
 
 # handle include files
@@ -337,15 +351,19 @@ if (not $parallel) {
   # NOTE: the next part of the script runs in the WORK directory
   chdir $work or die "Can't change to FRED directory $work\n";
   # print "serial mode: $FRED/bin/run_fred -p $params -d $out -s $start_run -n $end_run -t $threads -C\n";
-  system "$FRED/bin/run_fred -p $params -d $out -s $start_run -n $end_run -t $threads -C";
+  if ($nolog) {
+    system "$FRED/bin/run_fred -p $params -d $out -s $start_run -n $end_run -t $threads -C -L";
   } else {
+    system "$FRED/bin/run_fred -p $params -d $out -s $start_run -n $end_run -t $threads -C";
+  }
+} else {
   # parallel run
 
   # number of single cpu fred runs
   my $runs_remaining = $runs;
 
   # break down runs into sets of "$cpus" each
-  my $num_run_sets = ceil( (1.0*$runs*$multiple_cpus) / (1.0*$cpus));
+  my $num_run_sets = ceil( (1.0*$runs) / (1.0*$cpus));
 
   # create the LOG file for parallel run information
   my $logfile_parallel = "$meta/LOGP";
@@ -355,7 +373,6 @@ if (not $parallel) {
   print LP "runs=$runs\n";
   print LP "cpus=$cpus\n";
   print LP "number of sets=$num_run_sets\n";
-  print LP "multiple_cpus=$multiple_cpus\n";
   close LP;
 
   # print "parallel mode:\n";
@@ -368,10 +385,12 @@ if (not $parallel) {
   for (my $run_set = 0; $run_set < $num_run_sets; $run_set++) {
     # distribute fred runs accross cpus for this set
     my $run_instance = 0;
-    my $selected_cpu = $run_instance * $multiple_cpus;
+    my $selected_cpu = 0;
+    my $parallel_s = $start_run - 1;
+      
     while ($selected_cpu < $cpus && $runs_remaining > 0) {
-      # set fred instance (1 through $runs)
-      my $fred_instance = $runs - $runs_remaining + 1;
+      # set fred instance (-s [default 1] through -n [default $runs])
+      my $fred_instance = $parallel_s + $runs - $runs_remaining + 1;
 
       # log parallel activity
       open LP, ">>$logfile_parallel";
@@ -381,24 +400,22 @@ if (not $parallel) {
 
       # create instance-specific log file
       system "mkdir -p $out/RUN$fred_instance";
-      my $logfilep = "$out/RUN$fred_instance/LOG";
-
+      my $logfilep = "";
+      if ($nolog && $fred_instance != 1) {
+        $logfilep = "/dev/null";
+      } else {
+        $logfilep = "$out/RUN$fred_instance/LOG";
+      }
       # create child process
       if (fork() == 0) {
         # child
-        if ($using_pbs) {
-          # run on remote node
-          # exec "pbsdsh -n $run_instance /bin/sh -c \"cd $work && $FRED/bin/FRED -p $params -r $fred_instance > $logfilep\"\n";
-          exec "pbsdsh -n $selected_cpu /bin/sh -c \"cd $work && $FRED/bin/FRED -p $params -r $fred_instance > $logfilep\"\n";
-        } else {
-          # run on localhost
-          print "(export OMP_NUM_THREADS=$threads; $FRED/bin/FRED -p $params -r $fred_instance $out > $logfilep)\n" ;
-          exec "cd $work && (export OMP_NUM_THREADS=$threads; $FRED/bin/FRED -p $params -r $fred_instance -d $out > $logfilep)" ;
-        }
+        # run on localhost
+        print "(export OMP_NUM_THREADS=$threads; $FRED/bin/FRED -p $params -r $fred_instance $out > $logfilep)\n" ;
+        exec "cd $work && (export OMP_NUM_THREADS=$threads; $FRED/bin/FRED -p $params -r $fred_instance -d $out > $logfilep)" ;
       }
       $runs_remaining--;
       $run_instance++;
-      $selected_cpu = $run_instance * $multiple_cpus;
+      $selected_cpu++;
     } # while run_instance
 
     # wait for all child processes to finish from current set
@@ -445,7 +462,12 @@ close POP;
 
 # record the pop size and density
 `grep convex_density $log1 | awk \'{print \$4}\' > $meta/POPSIZE`; 
-`grep convex_density $log1 | awk \'{print \$11}\' > $meta/DENSITY`; 
+`grep convex_density $log1 | awk \'{print \$11}\' > $meta/DENSITY`;
+
+# Remove that first log file if nolog option is used
+if ($nolog) {
+  system "rm $log1";
+}
 
 # make csv output files
 # print "$FRED/bin/fred_make_csv_files --dir $out\n";
@@ -520,8 +542,6 @@ sub get_param_value {
   return $val;
 }
 
-
-
 sub copy_include_files {
   my ($params, $work) = @_;
   # `cp $params $params.old_includes`;
@@ -546,12 +566,12 @@ sub copy_include_files {
       print $out "include $file_base\n";
 
       # copy the actual file to the working directory
+      die "Can't find workfile $file\n" if (not -e "$file");
       `cp $file "$work/$file_base"`;
 
       # process this include file
       push @results, copy_include_files("$work/$file_base", $work);
-    }
-    else {
+    } else {
       print $out $line;
     }
   }
@@ -571,22 +591,23 @@ sub copy_file_parameters {
   open OUT,">$newparams";
   open IN, $params;
   while (my $line = <IN>) {
-    if ($line !~ /^\s*#/ and $line =~ /file =/) {
+    if ($line !~ /^\s*#/ and $line !~ /^\s*if\s+/ and $line =~ /file =/) {
       if ($line =~ /FRED_HOME\/data/) {
-	print OUT $line;
+        print OUT $line;
+      } else {
+        # print "fred_job line = |$line|\n";
+        # edit the line to point to the local file
+        my ($par, $file) = $line =~ /^(.*file) =\s*(\S*)/;
+        # print "fred_job par = |$par| file = |$file|\n";
+        my $file_base = $file;
+        $file_base =~ s/.*\/// if $file_base =~ /\//;
+        print OUT "$par = $file_base\n";
+  
+        # copy the actual file to the working directory
+        die "Can't find workfile 2 $file\n" if (not -e "$file");
+        `cp $file "$work/$file_base"`;
       }
-      else {
-	# edit the line to point to the local file
-	my ($par, $file) = $line =~ /^(.*file) =\s*(\S*)/;
-	my $file_base = $file;
-	$file_base =~ s/.*\/// if $file_base =~ /\//;
-	print OUT "$par = $file_base\n";
-	
-	# copy the actual file to the working directory
-	`cp $file "$work/$file_base"`;
-      }
-    }
-    else {
+    } else {
       print OUT $line;
     }
   }

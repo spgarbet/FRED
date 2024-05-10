@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -21,31 +21,47 @@
 #ifndef _FRED_PREDICATE_H
 #define _FRED_PREDICATE_H
 
-class Expression;
-
+#include <stdio.h>
 #include <string>
 #include <vector>
-#include <stdio.h>
-using namespace std;
 
+#include <spdlog/spdlog.h>
 
-class Person;
+#include "Expression.h"
+#include "Person.h"
 
-typedef bool (*fptr) (Person*,int,int);
+typedef bool (*fptr) (Person*, int, int);
 
-
+/**
+ * This class represents a predicate in the FRED language.
+ */
 class Predicate {
-public:
+ public:
 
-  Predicate(string s);
-  string get_name() {
+  Predicate(std::string s);
+
+  /**
+   * Gets the name of the predicate.
+   *
+   * @return the name
+   */
+  std::string get_name() {
     return this->name;
   }
-  bool get_value(Person* person1, Person* person2 = NULL);
+
+  bool get_value(Person* person1, Person* person2 = nullptr);
   bool parse();
+
+  /**
+   * Checks if this predicate is a warning.
+   *
+   * @return if this is a warning
+   */
   bool is_warning() {
     return this->warning;
   }
+  
+  static void setup_logging();
 
 private:
   std::string name;
@@ -87,8 +103,10 @@ private:
   static bool is_ineligible_for_vaccine(Person* person, int condition_id, int group_type_id);
   static bool has_received_vaccine(Person* person, int condition_id, int group_type_id);
   static std::string get_prefix_notation(std::string s);
+
+  static bool is_log_initialized;
+  static std::string predicate_log_level;
+  static std::unique_ptr<spdlog::logger> predicate_logger;
 };
 
 #endif
-
-

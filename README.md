@@ -29,7 +29,7 @@ FRED has been built, compiled and run on MacOS. It has also been compiled and ru
 Using the make command from the top-level directory should compile all of the source-code as well as unzip any population files that are included with the FRED Download.
 
 #### Notes on Compiling FRED
-The Makefile in src has the default set for a Production optimization and c++11 standards. There are commented out lines to give examples of switching to development compiling optimization and switching to c++14 or c++17 standards.
+The Makefile in src has the default set for a Production optimization and c++17 standards. 
 
 To set the  compiler flags for optimization, uncomment the appropriate line for your environment.
 ```
@@ -39,18 +39,12 @@ To set the  compiler flags for optimization, uncomment the appropriate line for 
 CPPFLAGS = $(CSTD) $(M64) -O3 $(OPENMP) $(OSFLAGS) $(LOGGING_LEVEL) -DNCPU=$(NCPU) $(INCLUDE_DIRS)
 ```
 
-To set the c++ standard uncomment the appropriate line for your compiler:
-```
-CSTD = -std=c++11
-#CSTD = -std=c++14
-#CSTD = -std=c++17
-```
-
 Once FRED has been compiled, you will want to setup some environment variables. Here is an idea of what should be in your .profile, .bashrc, or .zshrc (wherever you put your personal environment variables):
 
 ```
 # FRED Environment Variables
 export FRED_HOME=$HOME/FRED
 export PATH="$FRED_HOME/bin:${PATH}"
+export PATH="$FRED_HOME/pybin/bin:${PATH}"
 export FRED_GNUPLOT=<PATH TO GNUPLOT>   #e.g. /opt/local/bin/gnuplot
 ```

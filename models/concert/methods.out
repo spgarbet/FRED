@@ -1,0 +1,12 @@
+/Users/gref/FRED/bin/fred_delete: KEY = concert  JOB = 776
+/Users/gref/FRED/bin/fred_delete: /Users/gref/FRED/RESULTS/JOB/776 deleted
+fred_compile main.fred ...
+No errors found.
+No warnings.
+
+concert 970
+(export OMP_NUM_THREADS=1 ; FRED -p /Users/gref/FRED/RESULTS/JOB/970/WORK/main.fred -r 1 -d /Users/gref/FRED/RESULTS/JOB/970/OUT 2>&1 > /Users/gref/FRED/RESULTS/JOB/970/OUT/RUN1/LOG)
+fred_plot: source_file = plot-schedule.plt  image_file = schedule.pdf
+fred_plot: source_file = plot-attend.plt  image_file = attend.pdf
+fred_plot: source_file = plot-inc-concert.plt  image_file = inc-concert.pdf
+fred_plot: source_file = plot-tot-concert.plt  image_file = tot-concert.pdf

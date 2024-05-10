@@ -61,18 +61,18 @@ if ($key) {
   $keystr = "-k $key ";
 }
 
-my @places = qw/X H N S W/;
+my @places = qw/X H N S C W O/;
 my @counts = ();
 my @ave = ();
 my $n = 0;
 
-for my $j (0..4) {
+for my $j (0..6) {
   my $pcount = 0;
   for my $i (1..100) {
-    my $file = "$dir/RUN$i/DAILY/PLACE.$places[$j].txt";
+    my $file = "$dir/RUN$i/DAILY/WHERE.$places[$j].txt";
     # print "file = |$file|\n";
     if (-e $file) {
-      my $cmd = "fred_get_counts $keystr --run $i -v PLACE.$places[$j] | tail -1";
+      my $cmd = "fred_get_counts $keystr --run $i -v WHERE.$places[$j] | tail -1";
       # print "cmd = |$cmd|\n";
       my $line = `$cmd`;
       chomp $line;
@@ -85,18 +85,18 @@ for my $j (0..4) {
 }
 close FH;
 
-for my $j (0..4) {
+for my $j (0..6) {
   $ave[$j] = 0;
   $ave[$j] = 100.0 * $counts[$j] / $n if $n > 0;
 }
 
 print "\nobserved:\n";
-for my $j (0..4) {
+for my $j (0..6) {
   printf "%s %0.2f %d\n", $places[$j], $ave[$j], $counts[$j];
 }
 
 open FH, ">places.dat";
-printf FH "H %0.2f N %0.2f S %0.2f W %0.2f\n", $ave[1], $ave[2], $ave[3], $ave[4];
+printf FH "H %0.2f N %0.2f S %0.2f C %0.2f W %0.2f O %0.2f\n", $ave[1], $ave[2], $ave[3], $ave[4], $ave[5], $ave[6];
 close FH;
 exit;
 

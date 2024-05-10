@@ -1,0 +1,19 @@
+#!/bin/tcsh
+
+foreach type (full reduced proportional)
+
+ fred_delete -f -k $type
+ fred_job -k $type -p ${type}-contacts.fred
+
+ fred_plot -k $type -o $type -v WHERE.totH/INF.totE,WHERE.totN/INF.totE,WHERE.totS/INF.totE,WHERE.totC/INF.totE,WHERE.totW/INF.totE,WHERE.totO/INF.totE,WHERE.totX/INF.totE -l "H,N,S,C,W,O,X" -t "Place of Infection with $type neighborhood contacts" --legend out -w -Y 0.5
+
+end
+
+fred_plot -k full,reduced -o reduced-inc -v INF.newE,INF.newE -t "Weekly Incidence with \nreduced neighborhood contacts" -w -l Full,Reduced -c red,blue -X 24 -b
+
+fred_plot -k full,reduced -o reduced-nbr -v WHERE.newN,WHERE.newN -t "Neighborhood Transmission \nwith reduced neighborhood contacts" -w -l Full,Reduced -c red,blue -b -X 24
+
+fred_plot -k full,proportional -o proportional-inc -v INF.newE,INF.newE -t "Weekly Incidence \n with proportional neighborhood contacts" -w -l Full,Proportional -c red,blue -b -X 24
+
+fred_plot -k full,proportional -o proportional-nbr -v WHERE.newN,WHERE.newN -t "Neighborhood Transmission \nwith proportional neighborhood contacts" -w -l Full,Proportional -c red,blue -b -X 24
+

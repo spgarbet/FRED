@@ -161,12 +161,12 @@ unset key; unset tics;
 load 'BBOX'
 
 if (terminal eq "png") {
-  set term pngcairo enhanced font "arial,14" size 640,640
+  set term png enhanced font "arial,14" size 640,640
   title_string = sprintf("{/Arial=18 %s}\n{/Arial=14 %s}\n{/Arial=14 %s}\n{/Arial=12 %s}", my_title, my_subtitle, my_subsubtitle, my_date)
   set title title_string offset 0,-1
 }
 if (terminal eq "pdf") {
-  set term pdfcairo enhanced font "Helvetica,14" size 8.8888,8.8888
+  set term pdf enhanced font "Helvetica,14" size 8.8888,8.8888
   title_string = sprintf("{/Helvetica=18 %s}\n{/Helvetica=14 %s}\n{/Helvetica=14 %s}\n{/Helvetica=12 %s}", my_title, my_subtitle, my_subsubtitle, my_date)
   set title title_string offset 0,-1
 }

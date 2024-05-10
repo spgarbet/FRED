@@ -1,16 +1,16 @@
 /*
  * This file is part of the FRED system.
  *
- * Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown, 
- * Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse, 
+ * Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown,
+ * Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse,
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
- * FRED is distributed on the condition that users fully understand and agree to all terms of the 
+ * FRED is distributed on the condition that users fully understand and agree to all terms of the
  * End User License Agreement.
  *
  * FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
@@ -24,15 +24,16 @@
 //
 #include <limits>
 
-#include "Demographics.h"
-#include "Property.h"
-#include "Person.h"
-#include "Global.h"
+#include <spdlog/spdlog.h>
+
 #include "Date.h"
+#include "Demographics.h"
+#include "Global.h"
+#include "Parser.h"
+#include "Person.h"
 #include "Utils.h"
 
 class Global;
-bool Demographics::enable_aging = false;
 
 // birth and death stats
 int Demographics::births_today = 0;
@@ -43,49 +44,64 @@ int Demographics::deaths_ytd = 0;
 int Demographics::total_deaths = 0;
 std::vector<int> Demographics::admin_codes;
 
+bool Demographics::is_log_initialized = false;
+std::string Demographics::demographics_log_level = "";
+std::unique_ptr<spdlog::logger> Demographics::demographics_logger = nullptr;
+
+
+/**
+ * Initializes the environment for the simulation.
+ */
 void Demographics::initialize_static_variables() {
 
-  Property::disable_abort_on_failure();
-  Property::get_property("enable_aging", &Demographics::enable_aging);
-  Property::set_abort_on_failure();
+  Parser::disable_abort_on_failure();
+  Parser::set_abort_on_failure();
 
   // create file pointers if needed
-  if(Global::Enable_Population_Dynamics || Demographics::enable_aging) {
+  if(Global::Enable_Population_Dynamics) {
     int run = Global::Simulation_run_number;
     char filename[FRED_STRING_SIZE];
     char directory[FRED_STRING_SIZE];
-    sprintf(directory, "%s/RUN%d", Global::Simulation_directory, run);
+    snprintf(directory, FRED_STRING_SIZE, "%s/RUN%d", Global::Simulation_directory, run);
 
-    sprintf(filename, "%s/births.txt", directory);
+    snprintf(filename, FRED_STRING_SIZE, "%s/births.txt", directory);
     Global::Birthfp = fopen(filename, "w");
-    if(Global::Birthfp == NULL) {
+    if(Global::Birthfp == nullptr) {
       Utils::fred_abort("Can't open %s\n", filename);
     }
 
-    sprintf(filename, "%s/deaths.txt", directory);
+    snprintf(filename, FRED_STRING_SIZE, "%s/deaths.txt", directory);
     Global::Deathfp = fopen(filename, "w");
-    if(Global::Deathfp == NULL) {
+    if(Global::Deathfp == nullptr) {
       Utils::fred_abort("Can't open %s\n", filename);
     }
   }
 }
 
-
+/**
+ * Resets the birth and death counts for the current day.
+ *
+ * @param day _UNUSED_
+ */
 void Demographics::update(int day) {
   // reset counts of births and deaths
   Demographics::births_today = 0;
   Demographics::deaths_today = 0;
 }
 
-
+/**
+ * Generates a report on the demographics of the population. This report is outputted to a file.
+ *
+ * @param day _UNUSED_
+ */
 void Demographics::report(int day) {
   char filename[FRED_STRING_SIZE];
-  FILE* fp = NULL;
+  FILE* fp = nullptr;
 
   // get the current year
   int year = Date::get_year();
 
-  sprintf(filename, "%s/ages-%d.txt", Global::Simulation_directory, year);
+  snprintf(filename, FRED_STRING_SIZE, "%s/ages-%d.txt", Global::Simulation_directory, year);
   fp = fopen(filename, "w");
 
   int n0, n5, n18, n65;
@@ -100,26 +116,25 @@ void Demographics::report(int day) {
     Person* person = Person::get_person(p);
     int a = person->get_age();
     if(a < 5) {
-      n0++;
+      ++n0;
     } else if(a < 18) {
-      n5++;
+      ++n5;
     } else if(a < 65) {
-      n18++;
+      ++n18;
     } else {
-      n65++;
+      ++n65;
     }
     int n = a / 5;
     if(n < 20) {
-      count[n]++;
+      ++count[n];
     } else {
-      count[19]++;
+      ++count[19];
     }
-    total++;
+    ++total;
   }
   // fprintf(fp, "\nAge distribution: %d people\n", total);
   for(int c = 0; c < 20; ++c) {
-    fprintf(fp, "age %2d to %d: %6d %e %d\n", 5 * c, 5 * (c + 1) - 1, count[c],
-	    (1.0 * count[c]) / total, total);
+    fprintf(fp, "age %2d to %d: %6d %e %d\n", 5 * c, 5 * (c + 1) - 1, count[c], (1.0 * count[c]) / total, total);
   }
   /*
     fprintf(fp, "AGE 0-4: %d %.2f%%\n", n0, (100.0 * n0) / total);
@@ -132,7 +147,12 @@ void Demographics::report(int day) {
 
 }
 
-
+/**
+ * Finds the index of the specified admin code in the static admin codes vector.
+ *
+ * @param n the admin code
+ * @return the index
+ */
 int Demographics::find_admin_code(int n) {
   int size = Demographics::admin_codes.size();
   for(int i = 0; i < size; ++i) {
@@ -143,23 +163,55 @@ int Demographics::find_admin_code(int n) {
   return -1;
 }
 
-
+/**
+ * Terminates the specified Person and increments death statistics.
+ *
+ * @param self the person
+ */
 void Demographics::terminate(Person* self) {
   int day = Global::Simulation_Day;
-  FRED_STATUS(1, "Demographics::terminate day %d person %d age %d\n",
-	      day, self->get_id(), self->get_age());
+  Demographics::demographics_logger->debug("Demographics::terminate day {:d} person {:d} age {:d}", 
+      day, self->get_id(), self->get_age());
 
   // update death stats
-  Demographics::deaths_today++;
-  Demographics::deaths_ytd++;
-  Demographics::total_deaths++;
+  ++Demographics::deaths_today;
+  ++Demographics::deaths_ytd;
+  ++Demographics::total_deaths;
 
-  if(Global::Deathfp != NULL) {
+  if(Global::Deathfp != nullptr) {
     // report deaths
-    fprintf(Global::Deathfp, "day %d person %d age %d\n",
-	    day, self->get_id(), self->get_age());
+    fprintf(Global::Deathfp, "day %d person %d age %d\n", day, self->get_id(), self->get_age());
     fflush(Global::Deathfp);
   }
 }
 
+/**
+ * Initialize the class-level logging
+ * Initializes the static logger if it has not been created yet
+ */
+void Demographics::setup_logging() {
+  if(Demographics::is_log_initialized) {
+    return;
+  }
 
+  if(Parser::does_property_exist("demographics_log_level")) {
+    Parser::get_property("demographics_log_level", &Demographics::demographics_log_level);
+  } else {
+    Demographics::demographics_log_level = "OFF";
+  }
+
+  try {
+    spdlog::sinks_init_list sink_list = {Global::StdoutSink, Global::ErrorFileSink, 
+        Global::DebugFileSink, Global::TraceFileSink};
+    Demographics::demographics_logger = std::make_unique<spdlog::logger>("demographics_logger", 
+        sink_list.begin(), sink_list.end());
+    Demographics::demographics_logger->set_level(
+        Utils::get_log_level_from_string(Demographics::demographics_log_level));
+  } catch(const spdlog::spdlog_ex& ex) {
+    Utils::fred_abort("ERROR --- Log initialization failed:  %s\n", ex.what());
+  }
+
+  Demographics::demographics_logger->trace("<{:s}, {:d}>: Demographics logger initialized", 
+      __FILE__, __LINE__  );
+  Demographics::is_log_initialized = true;
+}

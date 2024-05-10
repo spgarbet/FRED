@@ -1,0 +1,15 @@
+
+fred_delete -f -k party
+
+fred_job -k party -p main.fred
+
+fred_plot -k party -o party -v PARTY.Host,PARTY.Invite,PARTY.Attend --legend out
+
+fred_plot -k party -o waiting -v PARTY.Waiting
+
+fred_plot -k party -o inc -v INF.newE,WHERE.newParty -b -w
+
+
+
+
+

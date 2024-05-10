@@ -5,10 +5,13 @@
 !/README.md
 !/VERSION
 !/bin/
+!/pybin/
 # !/calibration/
 !/data/
-!/doc/
+!/docs/
 !/etc/
+!/include
+!/include/*
 !/models
 !/src/
 !/library
@@ -18,10 +21,18 @@
 !/samples/
 !/tests/
 !/tutorial/
-src/METHODS 
+src/METHODS
 
-!/doc/*.pdf
-!/doc/*.fred
+# ignore the cached python binary files
+**/__pycache__/*
+
+# ignore python document build files
+pybin/docs/build/
+ 
+!/docs/html
+
+#!/docs/*.pdf
+#!/docs/*.fred
 
 data/country/*
 !data/config.fred
@@ -51,6 +62,16 @@ data/country/usa/US_2010.v3/*
 !data/country/usa/US_2010.v3/hosp.tar
 !data/country/usa/US_2010.v3/42003
 !data/country/usa/US_2010.v3/42065
+data/country/usa/US_2010.v3/42003/variables.csv
+data/country/usa/US_2010.v3/42003/gq_variables.csv
+data/country/usa/US_2010.v3/42065/variables.csv
+data/country/usa/US_2010.v3/42065/gq_variables.csv
+
+!data/country/usa/US_2010.v3.5
+data/country/usa/US_2010.v3.5/*
+!data/country/usa/US_2010.v3.5/*.txt
+!data/country/usa/US_2010.v3.5/42003
+!data/country/usa/US_2010.v3.5/42065
 
 # exclude RESULTS
 RESULTS/**
@@ -116,3 +137,4 @@ bin/fred_make_maps.logs
 
 # ignore all CVS directories
 **/CVS/
+

@@ -19,43 +19,57 @@ country = USA
 verbose = 1
 enable_health_records = 0
 enable_var_records = 0
+enable_list_var_records = 0
 enable_visualization_layer = 0
 check_properties = 0
 record_location = 0
 
 ##### Places
-include_place = Household
-include_place = Neighborhood
-include_place = School
-include_place = Classroom
-include_place = Workplace
-include_place = Office
-include_place = Hospital
+place Household {
+      starts_at_hour_6_on_weekdays = 2
+      starts_at_hour_6_on_weekends = 2
+      same_age_bias = 0.05
+}
 
-### Place Schedules
-Household.starts_at_hour_6_on_weekdays = 2
-Household.starts_at_hour_6_on_weekends = 2
-Classroom.starts_at_hour_9_on_weekdays = 2
-Office.starts_at_hour_9_on_weekdays = 2
-Office.starts_at_hour_9_on_weekends = 2
-School.starts_at_hour_13_on_weekdays = 2
-Workplace.starts_at_hour_13_on_weekdays = 2
-Workplace.starts_at_hour_13_on_weekends = 2
-Neighborhood.starts_at_hour_16_on_weekdays = 2
-Neighborhood.starts_at_hour_16_on_weekends = 3
+place Neighborhood {
+      starts_at_hour_16_on_weekdays = 2
+      starts_at_hour_16_on_weekends = 3
+      same_age_bias = 0.1
+      max_distance = 25
+      max_destinations = 100
+      min_distance = 4.0
+      distance_exponent = 3.0
+      population_exponent = 1.0
+      patch_size = 1.0
+}
 
-### Place Partitions
-School.partition = Classroom
-School.partition_basis = age
-School.partition_size = 40
-School.partition_max_age = 21
-Workplace.partition = Office
-Workplace.partition_basis = random
-Workplace.partition_size = 50
+place School {
+      starts_at_hour_13_on_weekdays = 2
+      partition = Classroom
+      partition_basis = age
+      partition_size = 40
+      partition_max_age = 21
+}
 
-### Place Contacts
-Household.same_age_bias = 0.05
-Neighborhood.same_age_bias = 0.1
+place Classroom {
+      starts_at_hour_9_on_weekdays = 2
+}
+
+place Workplace {
+      starts_at_hour_13_on_weekdays = 2
+      starts_at_hour_13_on_weekends = 2
+      partition = Office
+      partition_basis = random
+      partition_size = 50
+}
+
+place Office {
+      starts_at_hour_9_on_weekdays = 2
+      starts_at_hour_9_on_weekends = 2
+}
+
+place Hospital {
+}
 
 ###  CALIBRATION PHASE II STEP 3 at Wed Aug 21 23:03:04 2019
 ###  runs = 20  cores = 4
@@ -68,13 +82,62 @@ Office.contacts = 0.06814
 
 ##################################################
 
+# Class level logging defaults
+# TRACE    Designates finer-grained informational events than the DEBUG.
+# DEBUG    Designates fine-grained informational events that are most useful to debug an application.
+# INFO     Designates informational messages that highlight the progress of the application at coarse-grained level.
+# WARN     Designates potentially harmful situations.
+# ERR      Designates error events that might still allow the application to continue running.
+# CRITICAL Designates very severe error events that will presumably lead the application to abort.
+# OFF      The highest possible rank and is intended to turn off logging.
+#
+# NOTE: TRACE < DEBUG < INFO < WARN < ERR < CRITICAL < OFF
+
+age_map_log_level = OFF
+block_group_log_level = OFF
+census_tract_log_level = OFF
+clause_log_level = OFF
+condition_log_level = OFF
+county_log_level = OFF
+date_log_level = OFF
+demographics_log_level = OFF
+epidemic_log_level = OFF
+expression_log_level = OFF
+factor_log_level = OFF
+group_type_log_level = OFF
+group_log_level = OFF
+household_log_level = OFF
+natural_history_log_level = OFF
+neighborhood_layer_log_level = OFF
+neighborhood_patch_log_level = OFF
+network_transmission_log_level = OFF
+network_type_log_level = OFF
+network_log_level = OFF
+person_log_level = OFF
+place_type_log_level = OFF
+place_log_level = OFF
+predicate_log_level = OFF
+preference_log_level = OFF
+proximity_transmission_log_level = OFF
+rng_log_level = OFF
+regional_layer_log_level = OFF
+regional_patch_log_level = OFF
+rule_log_level = OFF
+state_space_log_level = OFF
+transmission_log_level = OFF
+travel_log_level = OFF
+visualization_patch_log_level = OFF
+
+##################################################
+
 # Expert Options
 max_loops = -1
 visualization_run = 1
 health_records_run = 1
 population_directory = $FRED_HOME/data/country
-population_version = RTI_2010_ver1
-# locations_file = $FRED_HOME/data/locations.txt
+# population_version = RTI_2010_ver1
+# population_version = US_2010.v3
+population_version = US_2010.v3.5
 enable_profiles = 1
 enable_adi_rank = 0
 update_elevation = 0
@@ -82,10 +145,10 @@ elevation_data_directory = none
 adi_file = $FRED_HOME/data/country/usa/ADI/us_bg_v1.5.txt
 seed = 123456
 reseed_day = -1
+reseed_run = -1
 enable_fixed_order_condition_updates = 1
 use_mean_latitude = 1
 regional_patch_size = 20.0
-Neighborhood.patch_size = 1.0
 debug = 1
 test = 0
 outdir = OUT
@@ -104,7 +167,7 @@ School_fixed_staff = 5
 School_student_teacher_ratio = 15.5
 enable_School_vaccination_rates = 0
 default_School_vaccination_rate = 95.0
-School_medical_vacc_exempt_rate = 0.002
+medical_vacc_exempt_rate = 0.002
 enable_new_transmission_model = 0
 enable_local_Workplace_assignment = 0
 enable_group_quarters = 1
@@ -123,36 +186,26 @@ nursing_home_resident_to_staff_ratio = 10.0
 enable_travel = 0
 travel_hub_file = $FRED_HOME/data/country/usa/msa_hubs.txt
 trips_per_day_file = $FRED_HOME/data/country/usa/trips_per_day.txt
-Neighborhood.max_distance = 25
-Neighborhood.max_destinations = 100
-Neighborhood.min_distance = 4.0
-Neighborhood.distance_exponent = 3.0
-Neighborhood.population_exponent = 1.0
 enable_transmission_bias = 1
-resources = none
-enable_density_transmission = 0
-enable_density_transmission_maximum_hosts = 0
-density_transmission_maximum_hosts = 99999
-enable_vector_layer = 0
-enable_vector_transmission = 0
-report_vector_population = 0
+enable_within_county_School_assignment = 0
 enable_within_state_School_assignment = 1
 enable_population_dynamics = 0
 enable_migration_to_target_popsize = 0
 enable_county_to_county_migration = 0
-enable_aging = 0
+projection_directory = state
 mortality_rate_file = $FRED_HOME/data/country/usa/mortality_rates.txt
 migration_file = $FRED_HOME/data/migration-42003.txt
+county_migration_file = none
 college_departure_rate = 0.25
 military_departure_rate = 0.25
 prison_departure_rate = 0.5
 youth_home_departure_rate = 0.2
+adult_home_departure_rate = 0.0
 enable_Hospitals = 0
-Hospital_contacts = 0
 Hospital_fixed_staff = 20
 Hospital_worker_to_bed_ratio = 1.0
 hospitalization_radius = 25.0
 Household_Hospital_map_file_directory = $FRED_HOME/data/country/usa/
 Household_Hospital_map_file = none
-enable_health_insurance = 0
+enable_external_variable_initialization = 0
 days = 0

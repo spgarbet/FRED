@@ -1,16 +1,16 @@
 /*
  * This file is part of the FRED system.
  *
- * Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown, 
- * Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse, 
+ * Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown,
+ * Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse,
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
- * FRED is distributed on the condition that users fully understand and agree to all terms of the 
+ * FRED is distributed on the condition that users fully understand and agree to all terms of the
  * End User License Agreement.
  *
  * FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
@@ -30,8 +30,6 @@
 #include <stdio.h>
 #include <vector>
 
-using namespace std;
-
 class Person;
 
 // type definitions:
@@ -39,9 +37,17 @@ typedef Person* event_t;
 typedef std::vector<event_t> events_t;
 typedef events_t::iterator events_itr_t;
 
+/**
+ * This class represents the events that have taken place or will take place in 
+ * the simulation.
+ *
+ * An Events object contains a two-dimensional events vector, with it's first dimension 
+ * being the steps, or hours, of the simulation, and it's second dimension being 
+ * the events that take place at that step.
+ */
 class Events {
 
-public:
+ public:
 
   Events();
   ~Events(){}
@@ -58,6 +64,5 @@ private:
   int event_queue_size;
   events_t* events;
 };
-
 
 #endif /* EVENTS_H_ */

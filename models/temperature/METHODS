@@ -1,0 +1,7 @@
+
+fred_delete -f -k temperature
+
+fred_job -k temperature -p temperature.fred
+
+fred_plot -k temperature -o temperature -v TEMP.Normal,TEMP.High,TEMP.Low -n -s 1 -l "Normal,High,Low" --legend out -t "Temperature Groups"
+

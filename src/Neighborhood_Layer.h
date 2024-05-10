@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -27,7 +27,8 @@
 #define _FRED_NEIGHBORHOOD_LAYER_H
 
 #include <vector>
-using namespace std;
+
+#include <spdlog/spdlog.h>
 
 #include "Abstract_Grid.h"
 
@@ -39,9 +40,17 @@ class Neighborhood_Patch;
 class Neighborhood;
 class Place;
 
-
+/**
+ * This class represents a grid of Neighborhood_Patch objects.
+ *
+ * The Neighborhood_Layer extends throughout the global simulation region, and 
+ * contains data on specific patches in the region that relates to neighborhoods 
+ * and population.
+ *
+ * This class inherits from Abstract_Grid.
+ */
 class Neighborhood_Layer : public Abstract_Grid {
-public:
+ public:
 
   Neighborhood_Layer();
   ~Neighborhood_Layer() {}
@@ -59,10 +68,12 @@ public:
   void setup_null_gravity_model();
   void print_gravity_model();
   void print_distances();
-  Place * select_destination_neighborhood(Place* src_neighborhood);
+  Place* select_destination_neighborhood(Place* src_neighborhood);
   void add_place(Place *place);
+  
+  static void setup_logging();
 
-private:
+ private:
 
   Neighborhood_Patch** grid;     // Rectangular array of patches
 
@@ -70,7 +81,7 @@ private:
   offset_t** offset;
   gravity_cdf_t** gravity_cdf;
   int max_offset;
-  vector<pair<double, int>> sort_pair;
+  std::vector<std::pair<double, int>> sort_pair;
 
   // runtime properties for neighborhood gravity model
   double max_distance;
@@ -79,6 +90,9 @@ private:
   double pop_exponent;
   double dist_exponent;
 
+  static bool is_log_initialized;
+  static std::string neighborhood_layer_log_level;
+  static std::unique_ptr<spdlog::logger> neighborhood_layer_logger;
 };
 
 #endif // _FRED_NEIGHBORHOOD_LAYER_H

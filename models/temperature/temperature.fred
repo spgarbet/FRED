@@ -1,0 +1,42 @@
+
+##### Simulated Location
+locations = Jefferson_County_PA 
+
+##### Simulated Timeframe
+start_date = 2020-Jan-01
+end_date = 2020-Jul-01
+# enable_health_records = 1
+
+## each person has an individual temperature
+my temp
+
+condition TEMP {
+  states = Check Normal Low High
+  enable_health_records = 1
+}
+
+# select a 1% sample of the popualtion:
+
+state TEMP.Start {
+  next(Check) with prob(0.01)
+  default(Excluded)
+}
+
+# check temperature and go to a temperature category:
+
+state TEMP.Check {
+  if (sim_day==0) then set(temp, 98.6) # initialize to 98.6
+  set(temp, temp + uniform(-1,1)) # add a random value between -1 and 1
+  wait(0)
+  if (temp < 96) then next(Low)
+  if (temp > 101) then next(High)
+  default(Normal)
+}
+
+
+# check temperature every day:
+
+state TEMP.Normal { wait(24); next(Check) }
+state TEMP.Low { wait(24); next(Check) }
+state TEMP.High { wait(24); next(Check) }
+

@@ -1,0 +1,94 @@
+
+#####################################################
+#
+# A model of ad hoc house parties
+# by John Grefenstette
+#
+
+place Party {
+  starts_at_hour_18_on_Sat = 4
+  max_size = 25
+  density_transmission_for_INF = 1
+  density_contact_prob = 0.1
+}
+
+global HostingRate
+HostingRate = 0.01
+
+
+condition PARTY {
+  states = Start Host Invite StopInviting \
+  	   Guest Waiting Invited Accepted \
+	   Attend Over Excluded
+  transmission_mode = proximity
+  transmissibility = 1
+  place_type_to_transmit = Party
+  exposed_state = Invited
+  Host.start_hosting = 1
+}
+
+
+place Neighborhood {
+  density_transmission_for_PARTY = 1
+  density_contact_prob = 0.1
+}
+
+
+state PARTY.Start {
+  wait(0)
+  if (household_relationship==householder) then next(Host) with prob(HostingRate)
+  default(Guest)
+}
+
+state PARTY.Host {
+  wait(24)
+  next(Invite)
+}
+
+state PARTY.Invite {
+  set_trans(PARTY, 1.0)
+  wait(24*4)
+  next(StopInviting)
+}
+
+state PARTY.StopInviting {
+  set_trans(PARTY, 0.0)
+  wait(24)
+  next(Over)
+}
+
+state PARTY.Guest {
+  wait(1)
+  next(Waiting)
+}
+
+state PARTY.Waiting {
+  quit(Party)
+  set_sus(PARTY, 1.0)
+  wait()
+  next()
+}
+
+state PARTY.Invited {
+  wait(0)
+  if (not(member(Party))) then next(Waiting)
+  default(Accepted)
+}
+
+state PARTY.Accepted {
+  wait(1)
+  default(Attend)
+}
+
+state PARTY.Attend {
+  wait(until_Sat_at_11pm)
+  next(Over)
+}
+
+state PARTY.Over {
+  wait(until_Sun)
+  if (host(Party)) then next(Host)
+  default(Waiting)
+}
+
+

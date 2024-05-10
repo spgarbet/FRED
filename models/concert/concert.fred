@@ -1,0 +1,79 @@
+
+#####################################################
+#
+# A model of mass gatherings -- concerts
+
+place Concert {
+  has_administrator = 1
+  starts_at_hour_18_on_Sat = 4
+  contacts = 100.0
+
+  # Heinz Field:
+  add = 100 40.446686 -80.015851 200.0
+
+  # Stage AE
+  add = 101 40.446160 -80.012300 200.0
+
+  # Peterson Event Center:
+  add = 102 40.444016 -79.962144 200.0
+}
+
+global HeinzField StageAE Peterson
+
+# give each venue a name
+HeinzField = 100
+StageAE = 101
+Peterson = 102
+
+my myConcert
+myConcert = 0
+
+condition CONCERT {
+  states = Start Select Wait Attend Over Schedule Reschedule Excluded
+  admin_start_state = Schedule
+}
+
+state CONCERT.Start {
+  if (range(age, 18, 60)) then next(Select) with prob(0.02)
+  default(Excluded)
+}
+
+state CONCERT.Select {
+  set(myConcert, HeinzField)
+  wait(24)
+  next(Wait)
+}
+
+state CONCERT.Wait {
+  join(Concert, myConcert)
+  wait(until_Sat_at_6pm)
+  if (open(Concert)) then next(Attend)
+  default(Select)
+}
+
+state CONCERT.Attend {
+  wait(4)
+  next(Over)
+}
+
+state CONCERT.Over {
+  quit(Concert)
+  wait(24)
+  next(Select)
+}
+
+# administrative states:
+
+# Example: hold a concert once a week, every 20 days
+
+state CONCERT.Schedule {
+  wait(24*7)
+  next(Reschedule)
+}
+
+state CONCERT.Reschedule {
+  close(Concert)
+  wait(24*13)
+  default(Schedule)
+}
+

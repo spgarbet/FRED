@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -27,20 +27,31 @@
 #ifndef _FRED_PREFERENCE_H
 #define _FRED_PREFERENCE_H
 
+#include <spdlog/spdlog.h>
+
 #include "Global.h"
 
+/**
+ * This class represents a preference in the FRED language.
+ */
 class Preference {
 
-public:
+ public:
   Preference();
   ~Preference();
-  void add_preference_expressions(string expr_str);
+  void add_preference_expressions(std::string expr_str);
   Person* select_person(Person* person, person_vector_t &people);
+  
+  static void setup_logging();
 
-private:
+ private:
   expression_vector_t expressions;
   double get_value(Person* person, Person* other);
-  string get_name();
+  std::string get_name();
+
+  static bool is_log_initialized;
+  static std::string preference_log_level;
+  static std::unique_ptr<spdlog::logger> preference_logger;
 };
 
 #endif // _FRED_PREFERENCE_H

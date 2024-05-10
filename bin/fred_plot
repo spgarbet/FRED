@@ -26,6 +26,7 @@ use strict;
 use warnings;
 use Env;
 use Getopt::Long qw(:config no_ignore_case bundling);
+use POSIX qw(strftime);
 
 my $FRED = $ENV{FRED_HOME};
 die "$0: Please set environmental variable FRED_HOME to location of FRED home directory\n" if not $FRED;
@@ -33,8 +34,25 @@ die "$0: Please set environmental variable FRED_HOME to location of FRED home di
 my $FREDRESULTS = $ENV{FRED_RESULTS};
 $FREDRESULTS = "$ENV{FRED_HOME}/RESULTS" if not $FREDRESULTS;
 
+my $datestring = strftime "%y-%b-%d %H:%M", localtime;
+chomp $datestring;
+my $version = `$FRED/bin/fred_version`;
+chomp $version;
+my $versiondate = "FRED $version $datestring";
+
 my $gnuplot = $ENV{FRED_GNUPLOT};
 die "$0: no gnuplot\n" if (not $gnuplot or (not -x $gnuplot));
+
+my $tmp = "tmp$$";
+
+my $cmd = "gnuplot -e 'set print \"$tmp\"; print GPVAL_TERMINALS'";
+# print "cmd = |$cmd|\n";
+system($cmd);
+my $terminals = `cat $tmp`;
+chomp $terminals;
+my $pdfcairo = $terminals =~ /pdfcairo/;
+# print "terminals |$terminals|\npdfcairo = |$pdfcairo|\n";
+system("unlink $tmp");
 
 my $commandline = "fred_plot @ARGV";
 my @data = ();
@@ -50,29 +68,41 @@ my $ymax = "*";
 my $display = 1;
 my $errorbars;
 my $title = "FRED Simulation";
-my $weekly = 0;
-my $monthly = 0;
-my $annually = 0;
 my $all;
 my $font = "Helvetica";
-my $fontsize = "18";
+my $fontsize = "12";
+if ($pdfcairo) {
+  $fontsize = "18";
+}
 my $boxes;
 my $normalize;
 my $scale = 100000;
 my $legend = "";
 my $linewidth = 0;
-my $xlabel = "Days";
+my $xlabel = "";
 my $ylabel = "Individuals";
-my $xtics = "";
+my $xtics = 1;
+my $mxtics = 10;
 my $outfile = "";
 my $help = "";
 my $show_year = 0;
 my $show_vars = 0;
 my $run = 0;
-my $total = 0;
 my $make_png = 0;
 my $use_mean_std = 0;
 my $key_out = 0;
+my $logscale = 0;
+my $weeklycount = 0;
+my $datecol = 0;
+my $daily = 0;
+my $weekly = 0;
+my $biweekly = 0;
+my $monthly = 0;
+my $yearly = 0;
+my $externalfile = "";
+my $EX = 0;
+my $EY = 1;
+my $ELAB = "";
 my $opt_result = GetOptions(
 			    "a" => \$all,
 			    "all" => \$all,
@@ -86,12 +116,21 @@ my $opt_result = GetOptions(
 			    "help" => \$help,
 			    "d=i" => \$display,
 			    "display=i" => \$display,
+			    "D" => \$daily,
+			    "W" => \$weekly,
+			    "B" => \$biweekly,
+			    "M" => \$monthly,
+			    "A" => \$yearly,
+			    "weekly" => \$weeklycount,
+			    "monthly" => \$monthly,
+			    "yearly" => \$yearly,
 			    "e" => \$errorbars,
 			    "f=s" => \$font,
 			    "k=s" => \@keys,
 			    "lw=f" => \$linewidth,
 			    "l=s" => \@labels,
 			    "labels=s" => \@labels,
+			    "Log=i" => \$logscale,
 			    "T=s" => \$title,
 			    "t=s" => \$title,
 			    "v=s" => \@vars,
@@ -115,11 +154,7 @@ my $opt_result = GetOptions(
 			    "s=f" => \$scale,
 			    "scale=f" => \$scale,
 			    "title=s" => \$title,
-			    "total" => \$total,
-			    "w" => \$weekly,
-			    "weekly" => \$weekly,
-			    "monthly" => \$monthly,
-			    "annually" => \$annually,
+			    "w" => \$weeklycount,
 			    "xmin=i" => \$xmin,
 			    "xmax=i" => \$xmax,
 			    "Xmax=i" => \$xmax,
@@ -129,9 +164,13 @@ my $opt_result = GetOptions(
 			    "ylabel=s" => \$ylabel,
 			    "xlabel=s" => \$xlabel,
 			    "xtics=i" => \$xtics,
-			    "year=i" => \$show_year,
+			    "year" => \$show_year,
 			    "o=s" => \$outfile,
 			    "output=s" => \$outfile,
+			    "external=s" => \$externalfile,
+			    "EX=i" => \$EX,
+			    "EY=i" => \$EY,
+			    "ELAB=s" => \$ELAB,
 			    "png" => \$make_png,
 			   );
 
@@ -145,24 +184,29 @@ usage: fred_plot -k key -v var [ options ], where options include:
        -F fontsize: specify font size.
        -h: print this help message.
        -k key [ -k key ... ]: keys of jobs to plot.
+       -l label [ -l label ... ]: labels to use for each variable.
+       --lw <n>: set linewidth to <n>
        -n: scale y-axis to show counts per <s> people.
        -o outfile: send output image to indicated file.
        -r <n>: show individual run <n>.
        -s <s> : scale factor for normalization.
        -t title: Title to appear on plot.
        -v var [ -v var ... ]: variable to be plotted.
-       -V: print list of available variables and exit.
        -w: plot variables averaged over epi weeks.
        -x xmin: min value for x-axis.
        -X xmax: max value for x-axis.
        -y ymin: min value for y-axis.
        -Y ymax: max value for y-axis.
-       --annually: plot annual values
-       --monthly: plot monthly values
+       -A: show annual date labels.
+       -M: show monthly date labels.
+       -W: show weekly date labels.
+       -M: show bi-weekly date labels.
+       -V: print list of available variables and exit.
+       --year: include years in date labels.
        --xtics <n>: put xtics every <n> units.
        --xlabel <s>: label the x axis with "s".
        --ylabel <s>: label the y axis with "s".
-       --year 1: show year in xtics.
+       --legend <s>: set legend control, e.g. "out"
        --png 0/1: output to png rather than pdf (default = 0).
 EOH
 
@@ -218,12 +262,10 @@ my @label = ();
 for my $i (0..$#vars) {
   if ($i < scalar @labels) {
     $label[$i] = $labels[$i];
-  }
-  else {
+  } else {
     $label[$i] = $vars[$i];
   }
 }
-
 
 # create a good name for the plt and pdf files
 my $keystr = join "-", @keys;
@@ -237,27 +279,25 @@ if (not $outfile) {
   if ($make_png) {
     $outfile = "plot-$keystr-$varstr.png";
   }
-}
-else {
+} else {
   $plotfile = "plot-$outfile.plt";
   $pdffile = "$outfile.pdf";
   if ($make_png) {
     $outfile = "$outfile.png";
-  }
-  else {
+  } else {
     $outfile = "$outfile.pdf";
   }
 }
 
-if ($make_png) {
+## if ($make_png) {
   ## $font = "Arial";
   ## $fontsize = $fontsize - 2;
-}
-else {
+## } else {
   ## $title =~ s/_/\\\\_/g;
-}
+## }
 $title =~ s/_/\\\\_/g;
 
+  
 # get the data files associated with each variable
 
 my $nkeys = scalar @keys;
@@ -280,7 +320,10 @@ for my $i (0..$#vars) {
 # create the input file for gnuplot
 my $date = scalar localtime;
 my $titlefontsize = $fontsize + 4;
-my $terminal = "pdfcairo font '$font,$fontsize' linewidth 3 size 7,5";
+my $terminal = "pdf font '$font,$fontsize' linewidth 3 size 7,5";
+if ($pdfcairo) {
+  $terminal = "pdfcairo font '$font,$fontsize' linewidth 3 size 7,5";
+}
 if ($make_png == 1) {
   # $terminal = "pngcairo font '$font,$fontsize' linewidth 1";
 }
@@ -289,6 +332,23 @@ my $setkey = "set key at graph 0.96, graph 0.96 right";
 $setkey = "set key $legend" if $legend;
 if ($key_out) {
   $setkey = "set key outside right";
+}
+
+my $ticfontsize = $fontsize-1;
+
+my $showdate = 0;
+$showdate = 1 if $daily or $weekly or $biweekly or $monthly or $yearly;
+$showdate = 0 if $weeklycount;
+
+$xtics = 1 if $xtics < 1;
+
+# line width
+my $lw = "lw 4";
+if ($pdfcairo) {
+  $lw = "lw 2";
+}
+if ($linewidth) {
+  $lw = "lw $linewidth";
 }
 
 open FH, ">$plotfile";
@@ -306,35 +366,103 @@ set title \"$title\" font \"$font,$titlefontsize\"
 set output \"$outfile\"
 set output \"$pdffile\"
 $setkey
-set grid
-set xtics nomirror out $xtics
-set ytics mirror in
-set mytics
+set xtics nomirror out $xtics font "$font,$ticfontsize"
+set ytics mirror in font "$font,$ticfontsize"
+# set label sprintf("\%s","$versiondate") at graph -0.1,-0.1 left font \'$font,6\'
 EOF
+
+if ($logscale) {
+  print FH "set logscale y $logscale\n";
+}
 
 if ($normalize) {
   if ($scale == 1) {
     $ylabel = "Fraction of Population";
-  }
-  elsif ($scale == 100) {
+  } elsif ($scale == 100) {
     $ylabel = "Percent";
-  }
-  else {
+  } else {
     $ylabel = "Per $scale";
   }
 }
 
-$xlabel = "Year" if $annually;
-$xlabel = "Month" if $monthly;
-$xlabel = "Week" if $weekly;
+if ($xlabel eq "") {
+  $xlabel = "Date" if $showdate;
+  $xlabel = "Week" if $weekly;
+  $xlabel = "Month" if $monthly;
+  $xlabel = "Year" if $yearly;
+  $xlabel = "Week" if $weeklycount;
+}
+
+
+# define format for date-based xtics
+my $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) ? x : "" ';
+
+if ($weekly) {
+  if ($show_year) {
+    $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) && (substr(x,10,11) eq "01" || substr(x,10,11) eq "08" || substr(x,10,11) eq "15" || substr(x,10,11) eq "22") ? x : "" ';
+  } else {
+    $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) && (substr(x,10,11) eq "01" || substr(x,10,11) eq "08" || substr(x,10,11) eq "15" || substr(x,10,11) eq "22") ? substr(x,6,11) : "" ';
+  }
+}
+
+if ($biweekly) {
+  if ($show_year) {
+    $dateformat = 'date_format(n,x) = (substr(x,10,11) eq "01" || substr(x,10,11) eq "15") ? x : "" ';
+  } else {
+    $dateformat = 'date_format(n,x) = (substr(x,10,11) eq "01" || substr(x,10,11) eq "15") ? substr(x,6,11) : "" ';
+  }
+}
+
+if ($monthly) {
+  if ($show_year) {
+    $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) && (substr(x,10,11) eq "01") ? x : "" ';
+  } else {
+    $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) && (substr(x,10,11) eq "01") ? substr(x,6,11) : "" ';
+  }
+}
+
+if ($yearly) {
+  if ($show_year) {
+    $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) && (substr(x,6,11) eq "Jan-01") ? substr(x,1,4) : "" ';
+  } else {
+    $dateformat = 'date_format(n,x) = (n % ' . "$xtics" . '==0) && (substr(x,6,11) eq "Jan-01") ? x : "" ';
+  }
+}
+
+
+if ($weeklycount) {
+  if ($show_year) {
+    if ($xtics == 1) {
+      $dateformat = 'date_format(n,x) = x';
+    } else {
+      $dateformat = 'date_format(n,x) = ((x[6:*]+0)%' . "$xtics" . '==0) && (x[6:*]+0 != 53) ? x : "" ';
+    }
+  } else {
+    if ($xtics == 1) {
+      $dateformat = 'date_format(n,x) = sprintf("%s",x[6:*]) ';
+    } else {
+      $dateformat = 'date_format(n,x) = ((x[6:*]+0)%' . "$xtics" . '==0) && (x[6:*]+0 != 53) ? sprintf("%s",x[6:*]) : "" ';
+    }
+  }
+}
+
+if ($showdate) {
+  print FH "$dateformat\n";
+  print FH "set xtics rotate by 270\n";
+  print FH "set grid ytics\n";
+} elsif ($weeklycount) {
+  print FH "$dateformat\n";
+  print FH "set xtics rotate by 270\n";
+  print FH "set grid xtics ytics\n";
+} else {
+  print FH "set grid xtics ytics\n";
+}
 
 print FH "set xrange [$xmin:$xmax]\n";
 print FH "set yrange [$ymin:$ymax]\n";
 print FH "set datafile separator ','\n";
 print FH "set xlabel \"$xlabel\" offset 0,0.5\n";
 print FH "set ylabel \"$ylabel\" offset 1.2,0\n";
-print FH "set xtics rotate by 315\n" if ($monthly);
-print FH "set xtics rotate by 270\n" if ($weekly);
 print FH "set bars 2.0 front\n";
 
 if ($boxes) {
@@ -352,18 +480,8 @@ if ($boxes) {
   print FH "\n";
 }
 
-if ($monthly) {
-  $xtics = 1 if not $xtics;
-  print FH "unset grid\n" if $xtics > 1;
-  print FH "\n";
-}
-
-if ($weekly) {
-  $xtics = 1 if not $xtics;
-  my $xlab_start = 6;
-  $xlab_start = 0 if $show_year;
-  print FH "get_xlabel(s) = (((s[6:*]+0)\%$xtics)==1 \&\& (s[6:*]+0 != 53))?sprintf('\%s',s[$xlab_start:*]):''\n";
-  print FH "unset grid\n" if $xtics > 1;
+if ($showdate) {
+  print FH "set xtics rotate by 270\n";
   print FH "\n";
 }
 
@@ -379,7 +497,13 @@ for my $i (0..$#vars) {
   my $ptitle = "$vlabel";
   my $plotcmd = ($n == 0);
   $n++;
-  print FH "plot \\\n" if $plotcmd;
+  if ($plotcmd) {
+    if ($externalfile) {
+      print FH "plot '$externalfile' using $EX:$EY title '$ELAB' with lines lt rgb 'black' $lw, \\\n";
+    } else {
+      print FH "plot \\\n";
+    }
+  }
   $ptitle =~ s/_/\\_/g;  
   print FH plot_command($ptitle,$n,0) if ($all or not $run);
   $plotcmd = 0;
@@ -395,8 +519,8 @@ print FH "\n";
 print FH "$_\n" for @data;
 print FH "\n";
 close FH;
-system "chmod +x $plotfile";
-system ($plotfile);
+# system "chmod +x $plotfile";
+system ("gnuplot " . $plotfile);
 print "fred_plot: source_file = $plotfile  image_file = $outfile\n";
 if ($make_png) {
   system "convert -density 300 $pdffile -background white -quality 100 $outfile";
@@ -413,38 +537,55 @@ sub get_data {
 
   my $numerator = "";
   my $denominator = "";
+  my $summand = "";
   if ($var =~ '/') {
     ($numerator, $denominator) = $var =~ /(.*)\/(.*)/;
     die "$0: bad variable name |$var|\n" if (not $numerator or not $denominator);
     $var = $numerator;
+  } else {
+    if ($var =~ '\+') {
+      ($numerator, $summand) = $var =~ /(.*)\+(.*)/;
+      die "$0: bad variable name |$var|\n" if (not $numerator or not $summand);
+      $var = $numerator;
+    }
   }
 
   my $time = "DAILY";
-  $time = "WEEKLY" if $weekly;
-
+  $time = "WEEKLY" if $weeklycount;
   my $file = $var;
   # print "file base = |$file|\n";
-
+  
   # find the CSV files directory
   my $id = `fred_id $key`;
   chomp $id;
   my $csvfile = "$FREDRESULTS/JOB/$id/OUT/PLOT/$time/$file.csv";
   if (not -e $csvfile) {
     my $available = `cat $FREDRESULTS/JOB/$id/OUT/PLOT/VARS`;
-    die "$0: Can't find csv file $csvfile\nSelect variable from list:\n$available\n";
+    die "$0: Can't find variable $file in FRED job $key with id $id\nSelect variable from list:\n$available\n";
   }
   # print "csvfile = |$csvfile|\n";
 
   my $csvfile2 = "";
   if ($denominator) {
     my $file2 = $denominator;
-    # print "file base = |$file2|\n";
+    # print "div file base = |$file2|\n";
     
     # find the CSV files directory
     $csvfile2 = "$FREDRESULTS/JOB/$id/OUT/PLOT/$time/$file2.csv";
     if (not -e $csvfile2) {
       my $available = `cat $FREDRESULTS/JOB/$id/OUT/PLOT/VARS`;
-      die "$0: Can't find csv file $csvfile2\nSelect variable from list:\n$available\n";
+      die "$0: Can't find variable $file2 in FRED job $key with id $id\nSelect variable from list:\n$available\n";
+    }
+  }
+  if ($summand) {
+    my $file2 = $summand;
+    # print "sum file base = |$file2|\n";
+    
+    # find the CSV files directory
+    $csvfile2 = "$FREDRESULTS/JOB/$id/OUT/PLOT/$time/$file2.csv";
+    if (not -e $csvfile2) {
+      my $available = `cat $FREDRESULTS/JOB/$id/OUT/PLOT/VARS`;
+      die "$0: Can't find variable $file2 in FRED job $key with id $id\nSelect variable from list:\n$available\n";
     }
   }
 
@@ -469,36 +610,84 @@ sub get_data {
   my @tmpdata = ();
   if (@b) {
 
-    # divide elements in each line in @a by corresponding line in @b
+    # add or divide elements in each line in @a by corresponding line in @b
     for my $aline (@a) {
       my $bline = shift @b;
       my @x = split(',',$aline);
       my @y = split(',',$bline);
       my @z = ();
       if ($x[0] eq "INDEX") {
-	@z = @x; 
-      }
-      else {
-	# index
-	push @z, $x[0];
-	# number of runs
-	push @z, $x[1];
-	# popsize
-	push @z, $x[2];
-	for my $i (3..(9+$x[1])) {
-	  # NOTE: division by zero is defined as 0 here!
-	  my $quot = 0;
-	  $quot = $x[$i] if $x[$i] == 0;
-	  $quot = $x[$i]/$y[$i] if $y[$i] != 0;
-	  push @z, $quot;
-	}
+	      @z = @x;
+      } else {
+	      # index
+	      push @z, $x[0];
+        # number of runs
+        push @z, $x[1];
+        # popsize
+        push @z, $x[2];
+        for my $i (3..(9+$x[1])) {
+          if ($denominator) {
+            # NOTE: division by zero is defined as 0 here!
+            my $quot = 0;
+            $quot = $x[$i] if $x[$i] == 0;
+            $quot = $x[$i]/$y[$i] if $y[$i] != 0;
+            push @z, $quot;
+          } else {
+	          my $sum = $x[$i] + $y[$i];
+	          push @z, $sum;
+	        }
+	      }
       }
       my $zline = join(",",@z);
       push @tmpdata, $zline;
     }
-  }
-  else {
+  } else {
     @tmpdata = @a;
+  }
+
+  my $datefile = "";
+  my $r = 1;
+  my $found = 0;
+  while (not $found) {
+    $datefile = "$FREDRESULTS/JOB/$id/OUT/RUN$r/DAILY/Date.txt";
+    # print "datefile |$datefile|\n"; system "ls $datefile";
+    $found = (-e $datefile);
+    $r++;
+  }
+  # print "datefile found |$datefile|\n";
+  # $tmpdata[0] .= ",DATE";
+  $tmpdata[0] = "DATE,$tmpdata[0]";
+  my @mon = qw/Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec/;
+  if ($found) {
+    my $first = 1;
+    open DATE,$datefile or die "Can't find datefile $datefile\n";
+    my $i = 0;
+    while (my $line = <DATE>) {
+      # print "$line";
+      chomp $line;
+      my ($d, $str) = split " ", $line;
+      my ($yr, $m, $day) = split '\-', $str;
+      $str = "$yr-$mon[$m-1]-$day";
+      if ($weeklycount) {
+	      # $tmpdata[($d/7)+1] .= ",$str" if ($i % 7 eq 0);
+	      my $j = $d/7 + 1;
+	      $tmpdata[$j] = "$str,$tmpdata[$j]" if ($i % 7 eq 0);
+      }
+      else {
+	      # $tmpdata[$d+1] .= ",$str";
+	      $tmpdata[$d+1] = "$str," . $tmpdata[$d+1];
+      }
+      $i++;
+      if ($first) {
+	      my @z = ();
+	      @z = split "," , $tmpdata[$d+1];
+	      # $datecol = scalar @z;
+	      $first = 0;
+	      # print "@z\n"; print "$datecol\n"; exit;
+      }
+      $datecol = 1;
+    }
+    close DATE;
   }
 
   push @tmpdata, "EOF";
@@ -512,14 +701,15 @@ sub plot_command {
   my ($ptitle,$n,$run) = @_;
 
   # x-axis value
-  my $x = "(\$1):";
-  $x = "(\$0):" if $weekly;
+  my $x = "(\$2):";
+  $x = "(\$0):" if $weeklycount;
   $x = "(\$0+get_shift($n)):" if $boxes;
+  $x = "(\$0):" if $showdate;
 
   # y-axis value
-  my $y = "\$6"; #this is the median value (default)
-  $y = "\$9" if $use_mean_std; # this is the mean
-  $y = "\$" . ($run+10) if $run; # this is the individual run value
+  my $y = "\$7";		 #this is the median value (default)
+  $y = "\$10" if $use_mean_std;	 # this is the mean
+  $y = "\$" . ($run+11) if $run; # this is the individual run value
 
   # divide by pop size to normalize
   my $mult = 1.0;
@@ -532,18 +722,18 @@ sub plot_command {
   my $e = "(0)";
   if ($errorbars and $run == 0) {
     if ($use_mean_std) {
-      $e = "(\$10*$mult)";
-    }
-    else {
-      $e = "(\$5*$mult):(\$7*$mult)";
+      $e = "(\$11*$mult)";
+    } else {
+      $e = "(\$6*$mult):(\$8*$mult)";
     }
   }
 
   # xtics
   my $xtic = "";
-  $xtic = ":xtic(\$0>0?strcol(1):'')" if ($monthly or $weekly) and $n == 1;
-  $xtic = ":xtic((\$0>0&&(int(\$0)\%$xtics==1))?strcol(1):'')" if ($monthly and $xtics > 1) and $n == 1;
-  $xtic = ":xtic(\$0>0?get_xlabel(strcol(1)):'')" if ($weekly and $xtics>1) and $n == 1;
+  $datecol = 2 if $weeklycount;
+  if (($weeklycount or $showdate) and $n == 1) {
+    $xtic = ":xtic(\$0>0 ? sprintf(date_format(int(\$0), strcol($datecol))) : '')";
+  }
   
   # title
   my $title = "title '$ptitle'";
@@ -554,25 +744,25 @@ sub plot_command {
   if ($all) {
     if ($run == 0) {
       $lt = "lt -1";
-    }
-    else {
+    } else {
       $lt = "lt $run";
     }
   }
   $ncolor++;
   
   # line width
-  my $lw = "lw 2";
+  my $lw = "lw 4";
+  if ($pdfcairo) {
+    $lw = "lw 2";
+  }
   if ($linewidth) {
     $lw = "lw $linewidth";
   }
-  if ($all) {
-    if ($run == 0) {
+  if ($all and $run > 0) {
+    if ($pdfcairo) {
+      $lw = "lw 1";
+    } else {
       $lw = "lw 2";
-      $lw = "lw $linewidth" if $linewidth;
-    }
-    else {
-      $lw = "lw 1" if $run > 0;
     }
   }
   $lw = "" if $boxes;

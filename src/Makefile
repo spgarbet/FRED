@@ -12,8 +12,12 @@
 ## David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
 ## All rights reserved.
 ##
-## FRED is distributed under BSD 3-Clause with Commons Clause license.  
-## See the file "LICENSE.md" for more information.
+## FRED is distributed on the condition that users fully understand and agree to all terms of the 
+## End User License Agreement.
+##
+## FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
+##
+## See the file "LICENSE" for more information.
 ##
 ##########################################################################################
 
@@ -34,9 +38,9 @@
 OPENMP =
 NCPU = 1
 OSFLAGS =
-CSTD = -std=c++11
+#CSTD = -std=c++11
 #CSTD = -std=c++14
-#CSTD = -std=c++17
+CSTD = -std=c++17
 # OPENMP = -fopenmp
 
 # Don't assume that uname is available on Windows
@@ -108,13 +112,19 @@ endif
 ################   Compiler Flags   ##############################
 FRED_EXECUTABLE_NAME = FRED
 FRED_memcheck: FRED_EXECUTABLE_NAME = FRED_memcheck
-SRC_DIR = $(shell pwd)
+FRED_HOME_DIR:=$(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
+#FRED_HOME_DIR:=$(strip $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST)))))
+SRC_DIR = $(FRED_HOME_DIR)/src
 
 CPP = g++
 # CPP = g++-7
 CXX = $(CPP)
+# This linker flag will allow more stack space to be allocated. 0x100000000 = 4GB, 0x200000000 = 8GB, etc.
+#LDFLAGS = -Wl,-stack_size,0x100000000
 LDFLAGS =
 LFLAGS =
+
+INCLUDE_DIRS = -I$(FRED_HOME_DIR)/include
 
 # comment out if not using clang (can also be set using an environmental variable)
 # FRED_CLANG_FLAGS = -mllvm -inline-threshold=1000
@@ -130,12 +140,11 @@ LOGGING_LEVEL = $(LOGGING_PRESET_3)
 
 ## recommended for development:
 #CPPFLAGS = -g $(CSTD) $(M64) -O0 $(LOGGING_PRESET_3) -Wall
-
 ## recommended for production runs:
 CPPFLAGS = $(CSTD) $(M64) -O3 $(OPENMP) $(OSFLAGS) $(LOGGING_LEVEL) -DNCPU=$(NCPU) $(INCLUDE_DIRS)
 
-$(info CPPFLAGS: $(CPPFLAGS))
-$(info )
+# $(info CPPFLAGS: $(CPPFLAGS))
+# $(info )
 
 FRED_memcheck: 	CPPFLAGS = -g -std=c++11 $(M64) -O0 $(OPENMP) $(LOGGING_LEVEL) -DNCPU=$(NCPU) -fno-omit-frame-pointer $(INCLUDE_DIRS)
 
@@ -146,7 +155,7 @@ FRED_memcheck: 	CPPFLAGS = -g -std=c++11 $(M64) -O0 $(OPENMP) $(LOGGING_LEVEL) -
 	$(CPP) $(CPPFLAGS) $(FRED_CLANG_FLAGS) -c $< $(INCLUDES)
 
 CORE_MODULE = Fred.o Global.o Age_Map.o Utils.o Date.o Events.o Random.o State_Space.o \
-	Property.o Factor.o Expression.o Predicate.o Clause.o Rule.o
+	Parser.o Factor.o Expression.o Predicate.o Clause.o Rule.o
 
 GEO_MODULE = Geo.o Abstract_Grid.o Abstract_Patch.o \
 	Admin_Division.o State.o County.o Census_Tract.o Block_Group.o \
@@ -179,7 +188,7 @@ FRED: $(OBJ)
 FRED_memcheck: FRED
 
 DEPENDS: $(SRC) $(HDR)
-	$(CPP) -std=c++11 -MM $(SRC) $(INCLUDE_DIRS) > DEPENDS
+	$(CPP) $(CSTD) -MM $(SRC) $(INCLUDE_DIRS) > DEPENDS
 
 include DEPENDS
 
@@ -204,7 +213,7 @@ print:
 	enscript $(SRC) $(HDR)
 
 clean:
-	rm -f *.o FRED ../bin/FRED ../bin/FRED_API fsz ../bin/fsz *~
+	rm -f *.o FRED FRED_API FRED.md5 FRED.tar.gz DEPENDS ../bin/FRED ../bin/FRED_API fsz ../bin/fsz *~
 	(cd ../tests; make clean)
 
 tags:

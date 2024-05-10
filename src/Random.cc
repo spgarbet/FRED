@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -22,9 +22,20 @@
 //
 // File: Random.cc
 //
-#include "Random.h"
+
 #include <stdio.h>
 #include <float.h>
+
+#include <spdlog/spdlog.h>
+#include <spdlog/fmt/fmt.h>
+
+#include "Parser.h"
+#include "Random.h"
+#include "Utils.h"
+
+bool RNG::is_log_initialized = false;
+std::string RNG::rng_log_level = "";
+std::unique_ptr<spdlog::logger> RNG::rng_logger = nullptr;
 
 Thread_RNG Random::Random_Number_Generator;
 
@@ -50,17 +61,18 @@ int RNG::draw_from_distribution(int n, double* dist) {
   double r = random();
   int i = 0;
   while(i <= n && dist[i] < r) {
-    i++;
+    ++i;
   }
   if(i <= n) {
     return i;
   } else {
-    printf("Help! draw from distribution failed.\n");
-    printf("Is distribution properly formed? (should end with 1.0)\n");
+    RNG::rng_logger->error(
+        "Help! draw from distribution failed. Is distribution properly formed? (should end with 1.0)");
+    std::stringstream ss;
     for(int i = 0; i <= n; i++) {
-      printf("%f ", dist[i]);
+      ss << fmt::format("{:f} ", dist[i]);
     }
-    printf("\n");
+    RNG::rng_logger->error("{:s}", ss.str());
     return -1;
   }
 }
@@ -70,8 +82,7 @@ double RNG::exponential(double lambda) {
   double u = random();
   if (u > 0.0) {
     return (-log(u) / lambda);
-  }
-  else {
+  } else {
     return DBL_MAX;
   }
 }
@@ -84,7 +95,7 @@ double RNG::lognormal(double mu, double sigma) {
   // Notation as on https://en.wikipedia.org/wiki/Log-normal_distribution
   // mu = log(median)
   // sigma = log(dispersion)
-  double z = normal(0.0,1.0);
+  double z = normal(0.0, 1.0);
   return exp(mu + sigma * z);
 }
 
@@ -110,13 +121,13 @@ int RNG::draw_from_cdf(double* v, int size) {
         bottom = s + 1;
       }
     }
-    s = bottom + (top - bottom)/2;
+    s = bottom + (top - bottom) / 2;
   }
   // assert(bottom <= top);
   return -1;
 }
 
-int RNG::draw_from_cdf_vector(const vector<double>& v) {
+int RNG::draw_from_cdf_vector(const std::vector<double>& v) {
   int size = v.size();
   double r = random();
   int top = size - 1;
@@ -178,4 +189,33 @@ void RNG::sample_range_without_replacement(int N, int s, int* result) {
   }
 }
 
+/**
+ * Initialize the class-level logging
+ * Initializes the static logger if it has not been created yet
+ */
+void RNG::setup_logging() {
+  if(RNG::is_log_initialized) {
+    return;
+  }
 
+  if(Parser::does_property_exist("rng_log_level")) {
+    Parser::get_property("rng_log_level", &RNG::rng_log_level);
+  } else {
+    RNG::rng_log_level = "OFF";
+  }
+
+  try {
+    spdlog::sinks_init_list sink_list = {Global::StdoutSink, Global::ErrorFileSink, 
+        Global::DebugFileSink, Global::TraceFileSink};
+    RNG::rng_logger = std::make_unique<spdlog::logger>("rng_logger", 
+        sink_list.begin(), sink_list.end());
+    RNG::rng_logger->set_level(
+        Utils::get_log_level_from_string(RNG::rng_log_level));
+  } catch(const spdlog::spdlog_ex& ex) {
+    Utils::fred_abort("ERROR --- Log initialization failed:  %s\n", ex.what());
+  }
+
+  RNG::rng_logger->trace("<{:s}, {:d}>: RNG logger initialized", 
+      __FILE__, __LINE__  );
+  RNG::is_log_initialized = true;
+}

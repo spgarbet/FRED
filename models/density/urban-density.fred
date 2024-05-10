@@ -1,0 +1,6 @@
+
+##### Simulated Location
+locations = Allegheny_County_PA
+
+include density.fred
+

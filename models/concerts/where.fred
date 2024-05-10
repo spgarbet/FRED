@@ -1,0 +1,33 @@
+
+###############################################
+
+# A condition for reporting where a transmission occurs
+
+condition WHERE {
+  states = None H N S C W O X Concert
+}
+
+# the following rule a moves each infected agent to the appropriate
+# reporting state
+
+state INF.E {
+  if (exposed_in(INF,Household)) then set_state(WHERE,H)
+  if (exposed_in(INF,Neighborhood)) then set_state(WHERE,N)
+  if (exposed_in(INF,School)) then set_state(WHERE,S)
+  if (exposed_in(INF,Classroom)) then set_state(WHERE,C)
+  if (exposed_in(INF,Workplace)) then set_state(WHERE,W)
+  if (exposed_in(INF,Office)) then set_state(WHERE,O)
+  if (exposed_in(INF,Concert)) then set_state(WHERE,Concert)
+  if (exposed_externally(INF)) then set_state(WHERE,X)
+}
+
+state WHERE.X {}
+state WHERE.None {}
+state WHERE.H {}
+state WHERE.N {}
+state WHERE.S {}
+state WHERE.C {}
+state WHERE.W {}
+state WHERE.O {}
+state WHERE.Concert {}
+

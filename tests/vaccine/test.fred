@@ -14,6 +14,3 @@ quality_control = 0
 outdir = OUT.TEST
 enable_health_records = 1
 health_records_run = -1
-
-
-

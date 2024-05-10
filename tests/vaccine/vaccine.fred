@@ -4,48 +4,60 @@
 #### CONDITIONS
 use FRED::Influenza
 
-include_condition = VAC
+Condition VAC
+
+## Properties of VAC:
 VAC.states = Start Unavail Avail Receive Immune Failed ImportStart ImportVaccine
 VAC.import_start_state = ImportStart
-
-# RULES
-
-if state(VAC,Unavail) then set_sus(VAC,0)
-if state(VAC,Start) then wait(0)
-if state(VAC,Start) then next(Unavail)
-
-if state(VAC,Unavail) then set_sus(VAC,1)
-if state(VAC,Unavail) then wait()
-
-# in this model, "exposure" means that  vaccine is available
-if exposed(VAC) then next(Avail)
-
-# agents take vaccine 5-20 days after it is available
-if state(VAC,Avail) then set_sus(VAC,0)
-if state(VAC,Avail) then wait(24*lognormal(10,2))
-if state(VAC,Avail) then next(Receive)
-
-# vaccine takes 14 days to become effective
-if state(VAC,Receive) then wait(24*14)
-
-# vaccine is 80% effective
-if state(VAC,Receive) then next(Immune) with prob(0.8)
-if state(VAC,Receive) then default(Failed)
-
-# immunity reduces susceptibility to INF to 0
-if state(VAC,Immune) then set_sus(INF,0.0)
-if state(VAC,Immune) then wait()
-if state(VAC,Failed) then wait()
-
-# META STATES FOR AVAILABILITY
-
-# vaccine is available immediately
-if state(VAC,ImportStart) then wait(0)
-if state(VAC,ImportStart) then next(ImportVaccine)
-if state(VAC,ImportVaccine) then wait()
-
-# import enough vaccine for 30% of population
-VAC.ImportVaccine.import_per_capita = 0.30
+VAC.exposed_state = Avail
 
 
+if state(VAC,Start) {
+  effect()
+  wait(0)
+  next(Unavail)
+} # end of state(VAC,Start)
+
+if state(VAC,Unavail) {
+  set_sus(VAC,1)
+  wait()
+  next()
+} # end of state(VAC,Unavail)
+
+if state(VAC,Avail) {
+  set_sus(VAC,0)
+  wait(24*lognormal(10,2))
+  next(Receive)
+} # end of state(VAC,Avail)
+
+if state(VAC,Receive) {
+  effect()
+  wait(24*14)
+  next(Immune) with prob(0.8)
+  default(Failed)
+} # end of state(VAC,Receive)
+
+if state(VAC,Immune) {
+  set_sus(INF,0.0)
+  wait()
+  next()
+} # end of state(VAC,Immune)
+
+if state(VAC,Failed) {
+  effect()
+  wait()
+  next()
+} # end of state(VAC,Failed)
+
+if state(VAC,ImportStart) {
+  effect()
+  wait(0)
+  next(ImportVaccine)
+} # end of state(VAC,ImportStart)
+
+if state(VAC,ImportVaccine) {
+  import_per_capita(0.30)
+  wait()
+  next()
+} # end of state(VAC,ImportVaccine)
 

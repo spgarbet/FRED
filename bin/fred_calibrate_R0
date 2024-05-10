@@ -1,0 +1,196 @@
+#!/usr/bin/perl
+
+##########################################################################################
+## 
+##  This file is part of the FRED system.
+##
+## Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown, 
+## Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse, 
+## Anuroop Sriram, and Donald Burke
+## All rights reserved.
+##
+## Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+## David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
+## All rights reserved.
+##
+## FRED is distributed on the condition that users fully understand and agree to all terms of the 
+## End User License Agreement.
+##
+## FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
+##
+## See the file "LICENSE" for more information.
+##
+##########################################################################################
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config no_ignore_case bundling);
+$| = 1;
+
+my $runs = 100;
+my $cores = 10;
+my $dir = `pwd`;
+$dir = `basename $dir`;
+chomp $dir;
+my $oldprog = "";
+my $usage = "usage: $0 -p oldprog -C condition [ -h | -r runs | -m cores | -M cpus | -d days ]\n";
+my $days = 30;
+my $help = "";
+my $cpus = 0;
+my $cond = "";
+my $opt_result = GetOptions(
+			    "h" => \$help,
+			    "p=s" => \$oldprog,
+			    "r=i" => \$runs,
+			    "d=i" => \$days,
+			    "M=i" => \$cpus,
+			    "C=s" => \$cond,
+			    "m=i" => \$cores
+);
+die $usage if $help;
+die $usage if not $oldprog;
+die $usage if not $cond;
+
+test_trans();
+test_R0();
+
+exit;
+
+sub test_trans {
+
+  open FH, ">R0.txt";
+  for (my $tr = 0.5; $tr <= 6.0; $tr += 0.5) {
+    $tr = sprintf "%.1f", $tr;
+    my $label = "get_coeff-$dir-tr=$tr";
+    my $prog = "$label.fred";
+    system "cp $oldprog $prog";
+    system "fred_set -- '$cond.R0' '-1' $prog 1";
+    system "fred_set -- '$cond.transmissibility' $tr $prog 1";
+    system "fred_set -- days $days $prog 1";
+    system "date";
+    system "fred_delete -f -k $label";
+    if ($cpus) {
+      system "fred_job -p $prog -k $label -n $runs -M $cpus";
+    } else {
+      system "fred_job -p $prog -k $label -n $runs -m $cores";
+    }
+    system "date";
+    my $r0 = `fred_R0 -k $label -v $cond`;
+    chomp $r0;
+    print FH "$tr $r0\n";
+    system "fred_delete -f -k $label";
+    unlink $prog;
+  }
+  close FH;
+
+  open PLT, ">R0.plt" or die "Can't write file R0.plt\n";
+  my $date = scalar localtime();
+  print PLT <<EOF;
+# set term aqua font 'Arial Bold, 14'
+# set terminal png medium
+set output 'R0.png'
+set term png font 'Arial Bold, 14'
+set ylabel 'R0' offset character 2,0
+set xlabel 'Trans' offset character 0,1.5
+set ytics nomirror 1 out offset character 0.5,0
+set xtics nomirror 1 out offset character 0,0.5
+set grid
+set xrange [0:*]
+set yrange [0:*]
+set key bottom right
+f(x) = a*x*x + b*x
+g(x) = c*x*x + d*x
+fit f(x) 'R0.txt' us 1:9 via a, b
+fit g(x) 'R0.txt' us 9:1 via c, d
+set label '$date' at graph 0.675,-0.1 left font 'Arial,11'
+set title 'R0 vs transmissibility: $runs runs with 100 seeds\n
+set label sprintf(\"R0 = %f*trans - %f*trans^2\\ntrans = %f*R0 + %f*R0^2\", b, -a, d, c) at graph 0.01,0.95
+plot 'R0.txt' us 1:15 title "R0" wi linespo pt 5 ps 1.5 lw 3, '' using 1:15:17 notitle wi err lt 1 lw 1, '' us 1:(a*\$1*\$1 + b*\$1) title 'Fit' with li lt -1 lw 3
+EOF
+  close PLT;
+
+  # plot the above file and compute quadratic fit parameters
+  system "gnuplot R0.plt >& gnuplot.out";
+
+  # edit prog file to include quadratic fit parameters
+  my $c = `grep 'c *=' gnuplot.out | tail -1 | awk '{print \$3}'`;
+  chomp $c;
+  my $d = `grep 'd *=' gnuplot.out | tail -1 | awk '{print \$3}'`;
+  chomp $d;
+  print "d = $d c = $c\n";
+  system "fred_set -- $cond.R0_a '$c' $oldprog 1";
+  system "fred_set -- $cond.R0_b '$d' $oldprog 1";
+}
+
+sub test_R0 {
+
+  # run test of specifying input R0
+  open FH, ">R0-test.txt";
+  for (my $r = 0.5; $r <= 6; $r += 0.5) {
+    $r = sprintf "%.1f", $r;
+    my $label = "get_coeff-$dir-R0=$r";
+    my $prog = "$label.fred";
+    system "cp $oldprog $prog";
+    system "fred_set -- '$cond.R0' $r $prog 1";
+    system "fred_set -- days $days $prog 1";
+    system "date";
+    system "fred_delete -f -k $label";
+    if ($cpus) {
+      system "fred_job -p $prog -k $label -n $runs -M $cpus";
+    } else {
+      system "fred_job -p $prog -k $label -n $runs -m $cores";
+    }
+    system "date";
+    my $r0 = `fred_R0 -k $label -v $cond`;
+    chomp $r0;
+    print FH "$r $r0\n";
+    system "fred_delete -f -k $label";
+    unlink $prog;
+  }
+  for (my $r = 11.0; $r <= 10.0; $r += 1.0) {
+    $r = sprintf "%.1f", $r;
+    my $label = "get_coeff-$dir-R0=$r";
+    my $prog = "$label.fred";
+    system "cp $oldprog $prog";
+    system "fred_set -- '$cond.R0' $r $prog 1";
+    system "fred_set -- days $days $prog 1";
+    system "date";
+    system "fred_delete -f -k $label";
+    if ($cpus) {
+      system "fred_job -p $prog -k $label -n $runs -M $cpus";
+    } else {
+      system "fred_job -p $prog -k $label -n $runs -m $cores";
+    }
+    system "date";
+    my $r0 = `fred_R0 -k $label -v $cond`;
+    chomp $r0;
+    print FH "$r $r0\n";
+    system "fred_delete -f -k $label";
+    unlink $prog;
+  }
+  close FH;
+
+  # plot the output form the test and see if it is linear
+  open PLT, ">R0-test.plt";
+  my $date = scalar localtime();
+  print PLT <<EOF;
+set output 'R0-test.png'
+set term png font 'Arial Bold, 14'
+set title "R0 Input Test: $runs runs"
+set ylabel "R0 Observed" offset character 2,0
+set xlabel "R0 Input" offset character 0,1.5
+set ytics nomirror 1 out offset character 0.5,0
+set xtics nomirror 1 out offset character 0,0.5
+set grid
+set xrange [0:6.5]
+set yrange [0:6.5]
+set key bottom right
+set label '$date' at 4.75,-1 left font 'Arial,11'
+plot 'R0-test.txt' us 1:15 notitle wi lines lt 1 lw 3, '' using 1:15:17 notitle wi err lt 1 lw 1, '' us 1:1 notitle with li lt -1 lw 3
+EOF
+  close PLT;
+  system "gnuplot R0-test.plt";
+}
+
+exit;
+

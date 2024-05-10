@@ -1,0 +1,564 @@
+#!/usr/bin/perl
+
+##########################################################################################
+## 
+##  This file is part of the FRED system.
+##
+## Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown, 
+## Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse, 
+## Anuroop Sriram, and Donald Burke
+## All rights reserved.
+##
+## Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+## David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
+## All rights reserved.
+##
+## FRED is distributed on the condition that users fully understand and agree to all terms of the 
+## End User License Agreement.
+##
+## FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
+##
+## See the file "LICENSE" for more information.
+##
+##########################################################################################
+
+use strict;
+use warnings;
+use Env;
+use Cwd;
+use Fcntl qw(:flock);
+use Getopt::Long qw(:config no_ignore_case bundling);
+use POSIX qw/ceil/;
+$| = 1;  # AUTO_FLUSH
+
+#####################################
+#
+# File: fred_slurm_job
+# Author: John Grefenstette
+# Created: Feb 25, 2020
+# Updated: Feb 25, 2020
+
+# get current working directory
+my $cwd = getcwd();
+
+my $FRED = $ENV{FRED_HOME};
+die "$0: Please set environmental variable FRED_HOME to location of FRED home directory\n" if not $FRED;
+
+my $FREDRESULTS = $ENV{FRED_RESULTS};
+$FREDRESULTS = "$ENV{FRED_HOME}/RESULTS" if not $FREDRESULTS;
+
+my $usage = "usage: $0 [ -h | -f | -k key | -p model.fred | -s start_run_number | -n end_run_number | -m jobs_per_core ]\n";
+my $help = "";
+my $cache = "";
+my $jobs_per_core = 1;
+my $force = "";
+my $key = "";
+my $paramsfile = "";
+my $start_run = "";
+my $end_run = "";
+my $opt_result = GetOptions(
+          "c" => \$cache,
+          "f" => \$force,
+          "h" => \$help,
+          "help" => \$help,
+          "k=s" => \$key,
+          "m=i" => \$jobs_per_core,
+          "n=i" => \$end_run,
+          "p=s" => \$paramsfile,
+          "s=i" => \$start_run
+);
+die $usage if $help;
+
+die "usage: $0 [-m is the number of jobs per core and it must be >= 1]\n" if $jobs_per_core < 1;
+die "usage: $0 [This script must be run on a Simple Linux Utility for Resource Management (SLURM) Batch System ...]\n" if  (!exists $ENV{SLURM_JOBID});
+
+# set default parameter values:
+$paramsfile = "model.fred" if not $paramsfile;
+$paramsfile = "params" if not -e $paramsfile;
+die $usage if not -e $paramsfile;
+
+# run the compiler and terminate if any errors
+my $tmp_dir = ".tmp_dir-$$";
+mkdir $tmp_dir or die "$0: cannot make tmp_dir for fred_compile\n";
+system "$FRED/bin/fred_compile -p $paramsfile -d $tmp_dir";
+if (-e "$tmp_dir/errors.txt") {
+  system "rm -rf $tmp_dir";
+  exit;
+} else {
+  system "rm -rf $tmp_dir";
+}
+
+$start_run = 1 if $start_run eq "";
+$end_run = $start_run if $end_run eq "";
+$end_run = $start_run if $end_run < $start_run;
+my $runs = $end_run - $start_run + 1;
+
+# declare these in package
+my $cpus;
+my @slurm_nodelist;
+
+@slurm_nodelist = `scontrol show hostname`;
+chomp(@slurm_nodelist);
+foreach my $element (@slurm_nodelist) {
+  $cpus++;
+  #print "  " . $element . "\n";
+}
+
+# NOTE: the next part of the script runs in the FRED_HOME directory
+chdir $FRED or die "Can't change to FRED directory $FRED\n";
+
+# compile FRED if necessary
+# system "cd src; make -s";
+
+# set locking semaphore
+my $SEMAPHORE = ($ENV{FRED_SEMAPHORE} || ".results.lck");
+open(SEM, ">$SEMAPHORE") || die "fred_job failed to obtain semaphore: ($!)\n";
+flock(SEM, LOCK_EX);
+
+# create RESULTS directory if needed
+my $fred_results = "$FREDRESULTS";
+if (not -d $fred_results) {
+ mkdir "$fred_results" or (close SEM and die "Can't create RESULTS directory $fred_results\n");
+}
+
+# create RESULTS/JOB directory if needed
+if (not -d "$fred_results/JOB") {
+ mkdir "$fred_results/JOB" or (close SEM and die "Can't create $fred_results/JOB directory\n");
+}
+
+# create $fred_results/ID file if needed
+if (not -e "$fred_results/ID") {
+ open FH, ">$fred_results/ID" or (close SEM and die "Can't create file $fred_results/ID\n");
+ print FH "1\n";
+ close FH;
+}
+
+# create $fred_results/KEY file if needed
+if (not -e "$fred_results/KEY") {
+  open FH, ">$fred_results/KEY" or (close SEM and die "Can't create file $fred_results/KEY\n");
+  close FH;
+}
+
+# determine if key is unique. if not, terminate unless force (-f) in effect
+my $old_id = "-1";
+if ($key) {
+  open FH, "$fred_results/KEY";
+  while (<FH>) {
+    chomp;
+    my ($k, $i) = split;
+    if ($k eq $key) {
+      if ($force) {
+        $old_id = $i;
+        last;
+      } else {
+        close SEM and close FH and die "fred_job: key $key already used.\n";
+      }
+    }
+  }
+  close FH;
+}
+
+if ($key and $cache) {
+  # see if we have already used these params before.
+  # if so, just return the id of the previous request
+  open FH, "$fred_results/KEY";
+  while (<FH>) {
+    chomp;
+    my ($k, $id) = split;
+    if (same_params("$cwd/$paramsfile", "$fred_results/JOB/$id/META/PARAMS")) {
+      close FH;
+      
+      # add key-id pair
+      `echo $key $id >> $fred_results/KEY`;
+
+      # release semaphore
+      close SEM;
+
+      # return to original directory
+      chdir $cwd;
+      print "$key $id\n";
+      exit;
+    }
+  }
+  close FH;
+}
+
+# set the job id
+my $id = "";
+if ($old_id > -1) {
+  # use old id
+  $id = $old_id;
+} else {
+  # get id for this job and update counter
+  open FH, "$fred_results/ID";
+  $id = <FH>;
+  chomp $id;
+  # print "id = |$id|\n";
+  close FH;
+  my $new_id = $id + 1;
+  open FH, ">$fred_results/ID";
+  print FH "$new_id\n";
+  close FH;
+  # use job id as key unless given command line key
+  $key = $id if $key eq "";
+  # add key-id pair
+  `echo $key $id >> $fred_results/KEY`;
+}
+
+# release semaphore
+close SEM;
+
+# make main directory for this job if needed
+my $dir = "$fred_results/JOB/$id";
+if (not -d $dir) {
+  mkdir $dir or die "Can't make directory $dir\n";
+}
+
+# return run_key association
+print "$key $id\n";
+
+# make working directory if needed
+my $work = "$dir/WORK";
+if (not -d $work) {
+  mkdir $work or die "Can't make directory $work\n";
+}
+
+# make directories for output
+my $out = "$dir/OUT";
+if (not -d $out) {
+  mkdir $out or die "Can't make directory $out\n";
+}
+
+# record meta data about this run
+my $meta = "$dir/META";
+if (not -d $meta) {
+  mkdir $meta or die "Can't make directory $meta\n";
+}
+
+# update job status
+`echo SETUP > $meta/STATUS`;
+my $t = localtime();
+`echo $t > $meta/START`;
+
+# record number of runs
+`echo $runs > $meta/RUNS`;
+
+# record the KEY
+`echo $key > $meta/KEY`;
+
+# record the time and date
+`date > $meta/DATE`; 
+
+# record the user
+`echo $ENV{USER} > $meta/USER`;
+
+# record the host
+`hostname > $meta/WHERE`;
+
+# record the original FRED command
+# `echo ./FRED $paramsfile > $meta/COMMAND`; 
+
+# create the LOG file
+my $logfile = "$meta/LOG";
+
+# copy the params file for future reference
+die "Can't find $cwd/$paramsfile\n" if (not -e "$cwd/$paramsfile");
+`cp $cwd/$paramsfile $meta/PARAMS`;
+die "Can't find $FRED/data/config.fred\n" if (not -e "$FRED/data/config.fred");
+`cp $FRED/data/config.fred $meta/CONFIG.FRED`;
+
+# copy source code
+my $version = "$meta/VERSION";
+if (not -d $version) {
+  mkdir $version or die "Can't make directory $version\n";
+}
+die "Can't find $FRED/data/config.fred\n" if (not -e "$FRED/data/config.fred");
+`cp -p $FRED/src/FRED.tar.gz $version`;
+`ls -l $FRED/data > ${version}/INPUT_FILES`;
+
+# return to original directory
+chdir $cwd;
+
+# copy the input files to working directory
+die "Can't find $FRED/data/config.fred\n" if (not -e "$FRED/data/config.fred");
+`cp $FRED/data/config.fred $work/config.fred`;
+
+# get the base of the params file name
+my $params_base = $paramsfile;
+$params_base =~ s/.*\/// if $params_base =~ /\//;
+my $params = "$work/$params_base";
+die "Can't find $paramsfile\n" if (not -e "$paramsfile");
+`cp $paramsfile $params`;
+
+# handle include files
+my @params_files = copy_include_files($params, $work);
+
+# copy file parameters to working directory
+for my $file (@params_files) {
+  copy_file_parameters($file, $work);
+}
+
+# update run status
+`echo RUNNING > $meta/STATUS`;
+
+# finally, run FRED
+
+# parallel run
+
+# number of single cpu fred runs
+my $runs_remaining = $runs;
+
+# break down runs into sets of "$cpus" each
+my $num_run_sets = ceil( (1.0*$runs) / (1.0*$cpus*$jobs_per_core));
+
+# create the LOG file for parallel run information
+my $logfile_parallel = "$meta/LOGP";
+
+# initialize parallel log to record activity
+open LP, ">$logfile_parallel";
+print LP "runs=$runs\n";
+print LP "cpus=$cpus\n";
+print LP "number of sets=$num_run_sets\n";
+print LP "jobs_per_core=$jobs_per_core\n";
+close LP;
+
+#print "parallel mode:\n";
+#print "runs=$runs\n";
+#print "cpus=$cpus\n";
+#print "number of sets=$num_run_sets\n";
+
+# iterate over the number of sets of runs
+for (my $run_set = 0; $run_set < $num_run_sets; $run_set++) {
+  # distribute fred runs accross cpus for this set
+ 
+  my $run_instance = 0;
+
+  while ($run_instance < $jobs_per_core && $runs_remaining > 0) {
+    my $selected_cpu = 0;
+    while ($selected_cpu < $cpus && $runs_remaining > 0) {
+          
+      # set fred instance (1 through $runs)
+      my $fred_instance = $runs - $runs_remaining + 1;
+
+      # log parallel activity
+      open LP, ">>$logfile_parallel";
+      print LP "Starting fred instance $fred_instance in set $run_set, instance $selected_cpu-$run_instance selected_cpu $selected_cpu at ", `date`;
+      close LP;
+      # print "Starting fred instance $fred_instance in set $run_set, instance $run_instance selected_cpu $selected_cpu at ", `date`;
+
+      # create instance-specific log file
+      system "mkdir -p $out/RUN$fred_instance";
+      my $logfilep = "$out/RUN$fred_instance/LOG";
+
+      # create child process
+      if (fork() == 0) {
+        # child
+        # run on remote node
+        print "Using node $slurm_nodelist[$selected_cpu]\n";
+        exec "ssh -o StrictHostKeyChecking=no $slurm_nodelist[$selected_cpu] /bin/sh -c \"ls>/dev/null && export FRED_HOME=$FRED_HOME && export PATH=$PATH && export FRED_RESULTS=$FRED_RESULTS && cd $work && $FRED/bin/FRED -p $params -r $fred_instance  -d $out > $logfilep\"\n";
+      }
+      $runs_remaining--;
+      $selected_cpu++;
+    } # while run_instance
+    $run_instance++;
+
+  } # while selected_cpu
+
+  # wait for all child processes to finish from current set
+  while (wait() != -1) {}
+  open LP, ">>$logfile_parallel";
+  print LP "run_set $run_set completed at ", `date`, "\n";
+  close LP;
+  print "run_set $run_set completed at ", `date`, "\n";
+
+} #for run_set
+open LP, ">>$logfile_parallel";
+print LP "All run_sets completed at ", `date`;
+close LP;
+
+# check for errors
+# my $errfiles = `ls $out`;
+# chomp $errfiles;
+# print "errfiles = |$errfiles|\n";
+# if ($errfiles =~ /err\d+.txt/) {
+#   print "FRED terminated with errors:\n";
+#   system "cat $out/err*";
+#   die "\nfred_job: abnormal termination.\n";
+# }
+
+# record the POPULATION file used (in case it was altered by parameters)
+my $log1 = "";
+for my $i (1..100) {
+  $log1 = (-e "$out/RUN$i/LOG") ? "$out/RUN$i/LOG" : "";
+  last if $log1;
+}
+`grep POPULATION_FILE $log1 | awk \'{print \$2}\' > $meta/POPULATION` if $log1; 
+
+# record the FIPS codes
+open POP,"$meta/POPULATION" or die "fred_job: ERROR opening $meta/POPULATION\n";
+while (my $line = <POP>) {
+  if ($line =~ /\d$/) {
+    my ($fips)=$line=~/(\d+)$/;
+    system "echo $fips >> $meta/FIPS";
+  }
+}
+close POP;
+
+# record the pop size and density
+`grep convex_density $log1 | awk \'{print \$4}\' > $meta/POPSIZE`; 
+`grep convex_density $log1 | awk \'{print \$11}\' > $meta/DENSITY`; 
+
+# make csv output files
+# print "$FRED/bin/fred_make_csv_files --dir $out\n";
+system "$FRED/bin/fred_make_csv_files --dir $out";
+
+# update run status
+`echo FINISHED > $meta/STATUS`;
+$t = localtime();
+`echo $t > $meta/FINISHED`;
+
+# return to original directory
+chdir $cwd;
+
+exit;
+
+sub same_params {
+  my ($p1, $p2) = @_;
+  my $vac_file_line;
+  my ($name, $vac_file1, $vac_file2);
+  #  return 0;
+  my $diff = `diff -b -B -q $p1 $p2`;
+  return 1 if $diff eq "";
+
+  #try the diff but ignore lines with vaccination_capacity_file
+  $diff = `diff -b -B -q -I "vaccination_capacity_file" $p1 $p2`;
+  return 0 if !($diff eq "");
+}
+
+sub get_param_value {
+  my ($param, $paramsfile) = @_;
+  # print "get_param_value: $param $paramsfile\n";
+
+  # get last line from params files that starts with the given parameter
+
+  # find config file
+  my $config = "config.fred";
+  if (not -e $config) {
+    $config = "$FRED/data/config.fred";
+  }
+  if (not -e $config) {
+    die "$0: could not find config file\n";
+  }
+
+  # add escape characters so that grep work for indexed parameters
+  $param =~ s/\[/\\[/g;
+  $param =~ s/\-/\\-/g;
+
+  my $val = "";
+  open PAR,"$config" or die "$0: ERROR READING $config\n";
+  while (my $line = <PAR>) {
+    if ($line =~ /^$param\s*=/) {
+      ($val) = $line =~ /=\s*(.*?)\s*$/; 
+      $val =~ s/\s*\#.*//;
+      $val =~ s/\s*;.*//g;
+      chomp $val;
+    }
+  }
+  close PAR;
+
+  open PAR,"$paramsfile" or die "$0: ERROR READING $paramsfile\n";
+  while (my $line = <PAR>) {
+    if ($line =~ /^$param\s*=/) {
+      ($val) = $line =~ /=\s*(.*?)\s*$/; 
+      $val =~ s/\s*\#.*//;
+      $val =~ s/\s*;.*//g;
+      chomp $val;
+    }
+  }
+  close PAR;
+  # print "$param val = |$val|\n";
+  return $val;
+}
+
+sub copy_include_files {
+  my ($params, $work) = @_;
+  # `cp $params $params.old_includes`;
+  # print "entered copy_include_files $params $work\n";
+  my $newparams = "$params.new_includes";
+  my @results = ();
+  push @results, $params;
+
+  # edit the include lines in new params
+  my $in;
+  my $out;
+  open $out,">$newparams";
+  open $in, $params;
+  while (my $line = <$in>) {
+    if ($line =~ /^include /) {
+      next if $line =~ /FRED_HOME\/data/;
+
+      # edit the line to point to the local file
+      my ($file) = $line =~ /^include \s*(\S*)/;
+      my $file_base = $file;
+      $file_base =~ s/.*\/// if $file_base =~ /\//;
+      print $out "include $file_base\n";
+
+      # copy the actual file to the working directory
+      die "Can't find workfile $file\n" if (not -e "$file");
+      `cp $file "$work/$file_base"`;
+
+      # process this include file
+      push @results, copy_include_files("$work/$file_base", $work);
+    }
+    else {
+      print $out $line;
+    }
+  }
+  close $in;
+  close $out;
+  `mv $newparams $params`;
+  # print "leaving copy_include_file $params $work |@results|\n";
+  return @results;
+}
+
+sub copy_file_parameters {
+  my ($params, $work) = @_;
+  # `cp $params $params.old_files`;
+  my $newparams = "$params.new_files";
+
+  # edit the lines with file parameters in new params
+  open OUT,">$newparams";
+  open IN, $params;
+  while (my $line = <IN>) {
+    if ($line !~ /^\s*#/ and $line !~ /^\s*if\s+/ and $line =~ /file =/) {
+      if ($line =~ /FRED_HOME\/data/) {
+  print OUT $line;
+      }
+      else {
+        # print "fred_job line = |$line|\n";
+        # edit the line to point to the local file
+        my ($par, $file) = $line =~ /^(.*file) =\s*(\S*)/;
+        # print "fred_job par = |$par| file = |$file|\n";
+        my $file_base = $file;
+        $file_base =~ s/.*\/// if $file_base =~ /\//;
+        print OUT "$par = $file_base\n";
+  
+        # copy the actual file to the working directory
+        die "Can't find workfile 2 $file\n" if (not -e "$file");
+        `cp $file "$work/$file_base"`;
+      }
+    }
+    else {
+      print OUT $line;
+    }
+  }
+  close IN;
+  close OUT;
+  `mv $params.new_files $params`;
+}
+
+sub uniq {
+  my %seen;
+  return grep { !$seen{$_}++ } @_;
+}
+

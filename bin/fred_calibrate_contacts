@@ -1,0 +1,270 @@
+#!/usr/bin/perl
+
+##########################################################################################
+## 
+##  This file is part of the FRED system.
+##
+## Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown, 
+## Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse, 
+## Anuroop Sriram, and Donald Burke
+## All rights reserved.
+##
+## Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+## David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
+## All rights reserved.
+##
+## FRED is distributed on the condition that users fully understand and agree to all terms of the 
+## End User License Agreement.
+##
+## FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
+##
+## See the file "LICENSE" for more information.
+##
+##########################################################################################
+
+use warnings;
+use strict;
+use Getopt::Long qw(:config no_ignore_case bundling);
+$| = 1;
+
+#####################################
+#
+# File: fred_calibrate_contacts
+# Author: John Grefenstette
+# 26 Aug 2011
+#
+# Based on targets proposed by Phil Cooley:
+#
+my $Htarget = 30;
+my $Ntarget = 33;
+my $Starget = 24.66;
+my $Wtarget = 12.34;
+my $CARtarget = 33.333;		# clinical attack rate
+my $oldmodel = "";
+my $runs = 20;
+my $cores = 4;
+my $cond = "";
+
+# stopping criteria
+my $threshold = 0.5;
+
+my $help = "";
+my $opt_result = GetOptions(
+			    "h" => \$help,
+			    "help" => \$help,
+			    "p=s" => \$oldmodel,
+			    "r=i" => \$runs,
+			    "n=i" => \$runs,
+			    "m=i" => \$cores,
+			    "t=s" => \$threshold,
+			    "C=s" => \$cond,
+			    "H=s" => \$Htarget,
+			    "N=s" => \$Ntarget,
+			    "S=s" => \$Starget,
+			    "W=s" => \$Wtarget,
+			    "A=s" => \$CARtarget
+);
+
+my $usage = <<EOH;
+usage: $0 -p oldmodel [ options ], where options include:
+       -p: initial model file.
+       -h: print this help message.
+       -n runs: run n simulation to evelaute each parameter set.
+       -m cores: run m simulation in parallel.
+       -H Htarget: target fraction of infections in households. (default: 30)
+       -N Ntarget: target fraction of infections in neighborhoods. (default 33)
+       -S Starget: target fraction of infections in schools. (default 24.66)
+       -W Wtarget: target fraction of infections in workplaces. (default 12.34)
+       -A CARtarget: target clinical attack rate. (default 33)
+       -t threshold: error threshold for accepting parameters. (default 0.01)
+
+output: A file named <oldmodel>-calibrated will be created with the
+        updated parameter settings.
+EOH
+
+die $usage if $help;
+die $usage if not $oldmodel;
+die $usage if not $cond;
+die $usage if not -e $oldmodel;
+
+open FH, $oldmodel or die "$0: Can't open model file $oldmodel\n$usage";
+
+# read original model
+my @orig = <FH>;
+close FH;
+
+my $modelfile = "$oldmodel-cal";
+my $modelfinal = "$oldmodel-calibrated";
+
+# get settings for calibration parameters from input file
+my $x = `grep Household.contact $oldmodel`;
+my @tmp = split " ", $x;
+my $h = pop @tmp;
+$x = `grep Neighborhood.contact $oldmodel`;
+@tmp = split " ", $x;
+my $n = pop @tmp;
+$x = `grep School.contact $oldmodel`;
+@tmp = split " ", $x;
+my $s = pop @tmp;
+$x = `grep Workplace.contact $oldmodel`;
+@tmp = split " ", $x;
+my $w = pop @tmp;
+
+my $error = 10;
+my $step = 0;
+while ($error > 1.0) {
+  $step++;
+  my $time = localtime();
+  my $modelfile = "$oldmodel-cal-$step";
+  print "Creating modelfile $modelfile\n";
+  open CAL, ">$modelfile" or die "$0: Can't create modelfile $modelfile\n";
+  print CAL @orig;
+  print CAL "###  CALIBRATION PHASE I STEP $step at $time\n";
+  print CAL "###  runs = $runs  cores = $cores\n";
+  printf CAL "Household.contacts = %0.5f\n", $h;
+  printf CAL "Neighborhood.contacts = %0.5f\n", $n;
+  printf CAL "School.contacts = %0.5f\n", $s;
+  printf CAL "Workplace.contacts = %0.5f\n", $w;
+  printf CAL "Classroom.contacts = %0.5f\n", 2*$s;
+  printf CAL "Office.contacts = %0.5f\n", 2*$w;
+  close CAL;
+
+  system "cp $modelfile $modelfinal";
+
+  print "###  CALIBRATION PHASE I STEP $step at $time\n";
+  print "###  runs = $runs  cores = $cores\n";
+  printf "Household.contacts = %0.5f\n", $h;
+  printf "Neighborhood.contacts = %0.5f\n", $n;
+  printf "School.contacts = %0.5f\n", $s;
+  printf "Workplace.contacts = %0.5f\n", $w;
+  printf "Classroom.contacts = %0.5f\n", 2*$s;
+  printf "Office.contacts = %0.5f\n", 2*$w;
+
+  system "fred_delete -f -k $modelfile &> /dev/null";
+  system "fred_job -k $modelfile -p $modelfile -n $runs -m $cores";
+
+  my $E = `fred_csv -k $modelfile -v $cond.totE | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $E;
+
+  my $H = `fred_csv -k $modelfile -v WHERE.H | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $H;
+
+  my $N = `fred_csv -k $modelfile -v WHERE.N | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $N;
+
+  my $S = `fred_csv -k $modelfile -v WHERE.S | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $S;
+
+  my $C = `fred_csv -k $modelfile -v WHERE.C | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $C;
+
+  my $W = `fred_csv -k $modelfile -v WHERE.W | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $W;
+
+  my $O = `fred_csv -k $modelfile -v WHERE.O | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $O;
+
+  $S = $S + $C;
+  $W = $W + $O;
+
+  $H = 100 * $H / $E if $E > 0;
+  $N = 100 * $N / $E if $E > 0;
+  $S = 100 * $S / $E if $E > 0;
+  $W = 100 * $W / $E if $E > 0;
+  # printf "output: H = %0.5f N = %0.5f  S = %0.5f  W = %0.5f\n",$H,$N,$S,$W;
+  
+  # get clinical attack rate
+  my $popsize = `fred_csv -k $modelfile -v Popsize | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $popsize;
+  
+  my $CAR = `fred_csv -k $modelfile -v $cond.totIs | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $CAR;
+  # print "popsize = $popsize totIs = $CAR ";
+  $CAR = 100*$CAR/$popsize;;
+  # print " = $CAR\n";
+
+  my $eh = $H - $Htarget;
+  my $en = $N - $Ntarget;
+  my $es = $S - $Starget;
+  my $ew = $W - $Wtarget;
+  my $ea = $CAR - $CARtarget;;
+
+  print "\n\nmeasured\ttarget:\terror:\n";
+  printf "H %0.2f\t\t$Htarget\t%0.2f\n", $H, $eh;
+  printf "N %0.2f\t\t$Ntarget\t%0.2f\n", $N, $en;
+  printf "S %0.2f\t\t$Starget\t%0.2f\n", $S, $es;
+  printf "W %0.2f\t\t$Wtarget\t%0.2f\n\n", $W, $ew;
+  printf "CAR = %0.6f\t\t%0.2f\n\n", $CAR, $ea;
+  $error = abs($eh) + abs($en) + abs($es) + abs($ew);
+  printf "total error = %0.5f\n\n\n", $error;
+  
+  $h *= $Htarget / $H if $H > 0;
+  $n *= $Ntarget / $N if $N > 0;
+  $s *= $Starget / $S if $S > 0;
+  $w *= $Wtarget / $W if $W > 0;
+
+  system "fred_delete -f -k $modelfile &> /dev/null";
+  unlink $modelfile;
+}
+
+$error = $threshold + 1;
+
+while ($error > $threshold) {
+  $step++;
+  my $time = localtime();
+  my $modelfile = "$oldmodel-cal-$step";
+
+  open CAL, ">$modelfile";
+  print CAL @orig;
+  print CAL "###  CALIBRATION PHASE II STEP $step at $time\n";
+  print CAL "###  runs = $runs  cores = $cores\n";
+  printf CAL "Household.contacts = %0.5f\n", $h;
+  printf CAL "Neighborhood.contacts = %0.5f\n", $n;
+  printf CAL "School.contacts = %0.5f\n", $s;
+  printf CAL "Workplace.contacts = %0.5f\n", $w;
+  printf CAL "Classroom.contacts = %0.5f\n", 2*$s;
+  printf CAL "Office.contacts = %0.5f\n", 2*$w;
+  close CAL;
+
+  system "cp $modelfile $modelfinal";
+
+  print "###  CALIBRATION PHASE II STEP $step at $time\n";
+  print "###  runs = $runs  cores = $cores\n";
+  printf "Household.contacts = %0.5f\n", $h;
+  printf "Neighborhood.contacts = %0.5f\n", $n;
+  printf "School.contacts = %0.5f\n", $s;
+  printf "Workplace.contacts = %0.5f\n", $w;
+  printf "Classroom.contacts = %0.5f\n", 2*$s;
+  printf "Office.contacts = %0.5f\n", 2*$w;
+
+  system "fred_delete -f -k $modelfile &> /dev/null";
+  system "fred_job -k $modelfile -p $modelfile -n $runs -m $cores";
+
+  # get clinical attack rate
+  my $popsize = `fred_csv -k $modelfile -v Popsize | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $popsize;
+  
+  my $CAR = `fred_csv -k $modelfile -v $cond.totIs | tail -1 | awk -F\',\' \'\{print \$9\}\' `;
+  chomp $CAR;
+  $CAR = 100*$CAR/$popsize;;
+
+  my $ea = $CAR - $CARtarget;;
+  printf "CAR = %0.5f\n", $CAR;
+  printf "errors: EA = %0.5f\n", $ea;
+  $error = abs($ea);
+  printf "total error = %0.5f\n\n\n", $error;
+  
+  # adjust to achieve desired CAR 
+  my $ar_ratio = $CARtarget / $CAR;
+  my $adjust = (2.0 + $ar_ratio) / 3.0;
+  $h *= $adjust;
+  $n *= $adjust;
+  $s *= $adjust;
+  $w *= $adjust;
+
+  system "fred_delete -f -k $modelfile &> /dev/null";
+  unlink $modelfile;
+}
+
+# system "fred_calibrate_R0 -p $modelfinal -r $runs -m $cores";
+

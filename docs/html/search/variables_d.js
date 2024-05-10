@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['n_5forig_3077',['N_orig',['../class_group.html#a09a747a6528de8182b7a477e9a77e00e',1,'Group']]],
+  ['name_3078',['name',['../class_epidemic.html#adfaa76ac45c807adc868d5ed08cd8ec8',1,'Epidemic::name()'],['../structcutoffs__t.html#a3ef6edcea80b0e27698c15663033778d',1,'cutoffs_t::name()'],['../class_group___type.html#a39f1d2bcaebb883adaf92ec3d325afd5',1,'Group_Type::name()'],['../class_natural___history.html#aeb736ae4f053619afe62b69c421bbce5',1,'Natural_History::name()']]],
+  ['names_3079',['names',['../class_group___type.html#a58cf345e61db6f584b2d1cebfa34fdc1',1,'Group_Type']]],
+  ['natural_5fhistory_3080',['natural_history',['../class_epidemic.html#a58ba9aa05aadba45de3327073cd6129a',1,'Epidemic']]],
+  ['neighborhoods_3081',['Neighborhoods',['../class_global.html#a9c25db72b559698317422eb1dd9f72d9',1,'Global']]],
+  ['network_5faction_3082',['network_action',['../class_natural___history.html#a6694f2200c4fea97a4ea40729344e747',1,'Natural_History']]],
+  ['network_5fmax_5fdegree_3083',['network_max_degree',['../class_natural___history.html#aa68785f8881edc801b057fd15a43dba3',1,'Natural_History']]],
+  ['network_5fmean_5fdegree_3084',['network_mean_degree',['../class_natural___history.html#aa7b13cffbb7512ff8f5b3280235bf39d',1,'Natural_History']]],
+  ['network_5ftype_3085',['network_type',['../class_natural___history.html#a1ccd4c8bc918af8465b52d0e959998c2',1,'Natural_History::network_type()'],['../class_network.html#a3a0e2c2f15fd873d5355252a9c2eaa27',1,'Network::network_type()']]],
+  ['new_5fexposed_5fpeople_5flist_3086',['new_exposed_people_list',['../class_epidemic.html#a430b8512c4d90b4df1001f985074bfac',1,'Epidemic']]],
+  ['next_5fpartition_3087',['next_partition',['../class_place.html#a943afd68c2fe72a9bc879d2d578af9ee',1,'Place']]],
+  ['next_5fpatch_5fid_3088',['next_patch_id',['../class_regional___patch.html#a4d938056d69eae504781ed97521e1323',1,'Regional_Patch']]],
+  ['next_5fplace_5fid_3089',['next_place_id',['../class_place.html#aee7a02b30d607b10523ceafeb7e94256',1,'Place']]],
+  ['next_5frules_3090',['next_rules',['../class_natural___history.html#a7630e88205e1927f8f67bbe1486358e4',1,'Natural_History']]],
+  ['next_5ftransition_5fstep_3091',['next_transition_step',['../structcondition__t.html#a1c8f70f501a67dd8166ca607ed46b35f',1,'condition_t']]],
+  ['november_3092',['NOVEMBER',['../class_date.html#ae2a7c51cab0c9520aebcd3e9d5c042ab',1,'Date']]],
+  ['number_5finfected_5fby_5fcohort_3093',['number_infected_by_cohort',['../class_epidemic.html#a29f4a823d8d098bfda0431eab091e226',1,'Epidemic']]],
+  ['number_5fof_5fhosts_3094',['number_of_hosts',['../structcondition__t.html#a28d8290258a49dd2c9c2536f110836d3',1,'condition_t']]],
+  ['number_5fof_5fstates_3095',['number_of_states',['../class_epidemic.html#a1a8a60af66e360c23ad8eb58c05f9691',1,'Epidemic::number_of_states()'],['../class_natural___history.html#a6d63bcc973c77a818db0519dd1ef3e98',1,'Natural_History::number_of_states()']]],
+  ['nursing_5fhome_5ffixed_5fstaff_3096',['Nursing_home_fixed_staff',['../class_place.html#a9ec2920826b43660744270694ba4d873',1,'Place']]],
+  ['nursing_5fhome_5fresident_5fto_5fstaff_5fratio_3097',['Nursing_home_resident_to_staff_ratio',['../class_place.html#a2b25dc21a1792bf96b7def8bb4e3cfaf',1,'Place']]],
+  ['nursing_5fhome_5froom_5fmean_5fsize_3098',['Nursing_home_room_mean_size',['../class_place.html#a61f7eeb214c56be9b69319824c2a31cd',1,'Place']]]
+];

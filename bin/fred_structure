@@ -1,0 +1,247 @@
+#!/usr/bin/perl
+##########################################################################################
+## 
+##  This file is part of the FRED system.
+##
+## Copyright (c) 2010-2012, University of Pittsburgh, John Grefenstette, Shawn Brown, 
+## Roni Rosenfield, Alona Fyshe, David Galloway, Nathan Stone, Jay DePasse, 
+## Anuroop Sriram, and Donald Burke
+## All rights reserved.
+##
+## Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+## David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
+## All rights reserved.
+##
+## FRED is distributed on the condition that users fully understand and agree to all terms of the 
+## End User License Agreement.
+##
+## FRED is intended FOR NON-COMMERCIAL, EDUCATIONAL OR RESEARCH PURPOSES ONLY.
+##
+## See the file "LICENSE" for more information.
+##
+##########################################################################################
+
+use strict;
+use warnings;
+
+my ($file) = @ARGV;
+my $usage = "usage: $0 filename\n";
+print $usage if (not $file);
+
+my $topcomment = "";
+my @prog = ();
+my @com = ();
+my @unused = ();
+my @out = ();
+my @comout = ();
+my @comtop = ();
+my $comment = "";
+open FH, "$file" or die "Can't open $file\n";
+
+my $i = 0;
+while (my $line = <FH>) {
+  chomp $line;
+  next if ($line =~ /^ *$/);
+  $line =~ s/^ *#/#/;
+  $comment = $comment . "=;=;=;" .  $line if ($line =~ /^#/);
+  $topcomment = $comment if $i eq 0;
+  next if ($line =~ /^#/);
+  $com[$i] = "";
+  $com[$i] = $comment if $i > 0;
+  $comment = "";
+  $prog[$i] = $line;
+  $i++;
+  push @unused, 1;
+}
+close FH;
+
+for my $i (0..scalar(@prog)-1) {
+  # print_com($com[$i]);
+  # print "$prog[$i]\n";
+}
+# print "=========================================\n\n";
+# exit;
+
+sub print_com {
+  my $c = shift;
+  return if (not $c);
+  # print "\n$c\n";
+  # return;
+  my @com = split /=;=;=;/, $c;
+  shift @com;
+  # print "@com\n";
+  # return;
+  print "\n";
+  for my $x (@com) {
+    print "$x\n";
+  }
+}
+
+# handle aliases
+for my $i (0..scalar(@prog)-1) {
+  if ($prog[$i] =~ /^ *include_condition = (\S+)/) {
+    $prog[$i] = "Condition $1";
+  }
+  if ($prog[$i] =~ /^ *include_place = (\S+)/) {
+    $prog[$i] = "Place $1";
+  }
+  if ($prog[$i] =~ /^ *include_network = (\S+)/) {
+    $prog[$i] = "Network $1";
+  }
+  if ($prog[$i] =~ /^ *include_variable = (\S+)/) {
+    $prog[$i] = "Var $1";
+  }
+  if ($prog[$i] =~ /^ *include_global_variable = (\S+)/) {
+    $prog[$i] = "Global $1";
+  }
+  if ($prog[$i] =~ /^ *include_list_variable = (\S+)/) {
+    $prog[$i] = "List $1";
+  }
+  if ($prog[$i] =~ /^ *include_global_list_variable = (\S+)/) {
+    $prog[$i] = "Global_List $1";
+  }
+}
+
+my @cond = ();
+for (my $i = 0; $i < scalar(@prog); $i++) {
+  if ($prog[$i] =~ /^Condition (\S+)/) {
+    push(@cond, $1);
+    $unused[$i] = 0;
+    # print "CONDITION = |$1|\n";
+  }
+}
+
+for (my $j = 0; $j < scalar(@cond); $j++) {
+  my $c = $cond[$j];
+  my @condprop = ();
+  push(@condprop, "Condition $c\n\n## Properties of $c:");
+  for (my $i = 0; $i < scalar(@prog); $i++) {
+    if ($prog[$i] =~ /^ *$c\./) {
+      push(@condprop, $prog[$i]);
+      push(@comout, $com[$i]);
+      $unused[$i] = 0;
+    }
+    # if ($prog[$i] =~ /^ *if *\(exposed\($c\) *then *next\((.*)\)/) {
+    if ($prog[$i] =~ /^ *if *exposed\($c\)/) {
+      # print "$prog[$i]\n"; exit;
+      $prog[$i] =~ /next\(([^ ]*)\)/;
+      push(@condprop, "$c.exposed_state = $1");
+      push(@comout, $com[$i]);
+      $unused[$i] = 0;
+    }
+  }
+  $condprop[scalar(@condprop)-1] .= "\n";
+  for (my $i = 0; $i < scalar(@condprop); $i++) {
+    push @out, "$condprop[$i]\n";
+  }
+  
+  my @states = ();
+  for (my $i = 0; $i < scalar(@prog); $i++) {
+    if ($prog[$i] =~ /$c.states = (.*)/) {
+      @states =  split " ", $1;
+      $unused[$i] = 0;
+    }
+  }
+  # print "states = @states\n";
+
+  for (my $j = 0; $j < scalar(@states); $j++) {
+    my $state = $states[$j];
+    my @block = ();
+    push @block, "if state($c,$state) {";
+    my @act = ();
+    my @wt = ();
+    my @nxt = ();
+    my $def = "";
+    for (my $i = 0; $i < scalar(@prog); $i++) {
+      if ($prog[$i] =~ /^ *if *state\($c[,\.]$state\) then (.*)/ or $prog[$i] =~ /^ *if *enter\($c[,\.]$state\) then (.*)/) {
+	$unused[$i] = 0;
+	my $st = $1;
+	if ($st =~ /next\(/) {
+	  push @nxt, $st;
+	}
+	elsif ($st =~ /default\(/) {
+	  $def = $st;
+	}
+	elsif ($st =~ /wait\(/) {
+	  push @wt, $st;
+	}
+	else {
+	  push @act, $st;
+	}
+      }
+
+      if ($prog[$i] =~ /^ *if *state\($c[,\.]$state\) and(.*)/ or $prog[$i] =~ /^ *if *enter\($c[,\.]$state\) and(.*)/) {
+	$unused[$i] = 0;
+	my $st = "if $1";
+	if ($st =~ /next\(/) {
+	  push @nxt, $st;
+	}
+	elsif ($st =~ /default\(/) {
+	  $def = $st;
+	}
+	elsif ($st =~ /wait\(/) {
+	  push @wt, $st;
+	}
+	else {
+	  push @act, $st;
+	}
+      }
+    }
+
+    for my $s (@act) {
+      push @block, "  $s";;
+    }
+    if (not @act) {
+      push @block, "  action()";
+    }
+
+    for my $s (@wt) {
+      push @block, "  $s";
+    }
+    if (not @wt) {
+      push @block, "  wait()";
+    }
+
+    for my $s (@nxt) {
+      push @block, "  $s";
+    }
+    if ($def) {
+      push @block, "  $def";
+    }
+    if (not @nxt and not $def) {
+      push @block, "  next()";
+    }
+
+    push @block, "} # end of state($c,$state)\n";
+    for (my $i = 0; $i < scalar(@block); $i++) {
+      push @out, "$block[$i]\n";
+    }
+    # print "----\n";
+  }
+}
+
+my @top = ();
+for (my $i = 0; $i < scalar(@prog); $i++) {
+  if ($unused[$i]) {
+    push @top, $prog[$i];
+    push(@comtop, $com[$i]);
+    $unused[$i] = 0;
+  }
+}
+push @top, "\n" if @top;
+
+print_com($topcomment);
+
+# print "== TOP ===========================\n";
+for (my $i = 0; $i < scalar(@top); $i++) {
+  print_com($comtop[$i]);
+  print "$top[$i]\n";
+}
+# print "== TOP ===========================\n";
+
+for (my $i = 0; $i < scalar(@out); $i++) {
+  print "$out[$i]";
+}
+
+
+

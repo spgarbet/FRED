@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -18,4 +18,20 @@
  * See the file "LICENSE" for more information.
  */
 
+#include <string>
+#include <sstream>
+
+#include <spdlog/fmt/fmt.h>
+
 #include "Abstract_Patch.h"
+
+/**
+ * Converts the patch to a string representation.
+ */
+std::string Abstract_Patch::to_string() {
+  std::stringstream ss;
+  ss << fmt::format("patch {:d} {:d}: {:f}, {:f}, {:f}, {:f}", this->row, this->col, 
+      this->min_x, this->min_y, this->max_x, this->max_y);
+
+  return ss.str();
+}

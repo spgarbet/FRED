@@ -1,0 +1,21 @@
+
+##### Simulated Location
+# locations = Allegheny_County_PA
+# locations = Jefferson_County_PA
+
+##### Simulated Timeframe
+start_date = 2020-Jan-01
+end_date = 2020-May-01
+
+##### Output Options
+# enable_health_records = 1
+INF.enable_health_records = 1
+WHERE.enable_health_records = 1
+
+include inf.fred
+include where.fred
+
+place Neighborhood {
+  density_transmission_for_INF = 1
+  density_contact_prob_for_INF = 0.0003
+}

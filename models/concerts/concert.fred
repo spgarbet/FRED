@@ -1,0 +1,107 @@
+
+###############################################
+
+# A condition for reporting where a transmission occurs
+
+place Concert {
+  has_administrator = 1
+  starts_at_hour_18_on_Sat = 4
+  contacts = 100.0
+
+  # Heinz Field:
+  add = 100 40.446686 -80.015851 200.0
+
+  # Stage AE
+  add = 101 40.446160 -80.012300 200.0
+
+  # Peterson Event Center:
+  add = 102 40.444016 -79.962144 200.0
+}
+
+global HeinzField StageAE Peterson
+
+# give each venue a name
+HeinzField = 100
+StageAE = 101
+Peterson = 102
+
+my myConcert
+myConcert = 0
+
+my Delay
+Delay = 0
+
+condition CONCERT {
+  states = Start Select Wait Ready Attend Attended Schedule Reschedule Excluded
+  admin_start_state = Schedule
+}
+
+# Narrative:
+
+# The Start states excludes agents who do not attend any concerts.
+#  The other agents Select a concert venue to attend regularly.  In
+#  this example, they all select Peterson as theire venue of
+#  choice. Each agent also sets its personal Delay , the number of
+#  days between concerts it will attend. The agent then Wait that many
+#  days and enters the Ready state.
+
+# In the Ready state, the agent wait until the next Saturday night. If
+#   the venue is open, they Attend the concert, then wait for one day
+#   in the Attended state (so we can measure attendance).  They then
+#   return to the Wait state.
+
+state CONCERT.Start {
+  if (range(age, 18, 30)) then next(Select) with prob(0.9)
+  if (range(age, 31, 50)) then next(Select) with prob(0.5)
+  if (age > 50) then next(Select) with prob(0.1)
+  default(Excluded)
+}
+
+state CONCERT.Select {
+  set(myConcert, Peterson)
+  join(Concert, myConcert)
+  set(Delay, lognormal(7,2.0))
+  absent(Concert)
+  wait(24*Delay)
+  next(Wait)
+}
+
+state CONCERT.Wait {
+  absent(Concert)
+  set(Delay, lognormal(14,2.0))
+  wait(24*Delay)
+  next(Ready)
+}
+
+state CONCERT.Ready {
+  wait(until_Sat_at_6pm)
+  if (open(Concert)) then next(Attend)
+  default(Wait)
+}
+
+state CONCERT.Attend {
+  wait(4)
+  next(Attended)
+}
+
+state CONCERT.Attended {
+  absent(Concert)
+  wait(24)
+  next(Wait)
+}
+
+# administrative states:
+
+# Example: hold a concert once a week, every 20 days
+
+state CONCERT.Schedule {
+  wait(24*7)
+  next(Reschedule)
+}
+
+state CONCERT.Reschedule {
+  close(Concert)
+  wait(24*13)
+  next(Schedule)
+}
+

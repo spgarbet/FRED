@@ -1,0 +1,42 @@
+
+##### Simulated Location
+locations = Allegheny_County_PA
+
+##### Simulated Timeframe
+start_date = 2020-Jan-01
+end_date = 2020-Jul-01
+
+##### simple influenza model:
+include inf.fred
+
+##### to report where infections occur:
+include where.fred
+
+# include an admin agent for each neighborhood
+place Neighborhood {
+  has_administrator = 1
+}
+
+# sample admin agent condition
+condition CONTROL {
+  states = Wait SetContacts
+  admin_start_state = Start
+}
+
+state CONTROL.Start {
+  if (admin(Neighborhood)) then next(Wait)
+  default(Excluded)
+}
+
+state CONTROL.Wait {
+  wait(24*10)
+  next(SetContacts)
+}
+
+state CONTROL.SetContacts {
+  set_contacts(0.5)
+  wait()
+  next()
+}
+
+

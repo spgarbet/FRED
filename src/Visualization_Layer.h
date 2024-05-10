@@ -6,7 +6,7 @@
  * Anuroop Sriram, and Donald Burke
  * All rights reserved.
  *
- * Copyright (c) 2013-2019, University of Pittsburgh, John Grefenstette, Robert Frankeny,
+ * Copyright (c) 2013-2021, University of Pittsburgh, John Grefenstette, Robert Frankeny,
  * David Galloway, Mary Krauland, Michael Lann, David Sinclair, and Donald Burke
  * All rights reserved.
  *
@@ -27,18 +27,35 @@
 #define _FRED_VISUALIZATION_GRID_H
 
 #include "Abstract_Grid.h"
+#include "Visualization_Patch.h"
 
 typedef std::pair<double, double> point;
 
-class Visualization_Patch;
-
+/**
+ * This class represents a grid of Visualization_Patch objects.
+ *
+ * The Visualization_Layer extends throughout the global simulation region, and 
+ * contains data relevant to a visualization of the simulation.
+ *
+ * This class inherits from Abstract_Grid.
+ */
 class Visualization_Layer : public Abstract_Grid {
 public:
   Visualization_Layer();
+  
+  /**
+   * Default destructor.
+   */
   ~Visualization_Layer() {}
   Visualization_Patch* get_patch(int row, int col);
   Visualization_Patch* get_patch(double x, double y);
   void update_data(double x, double y, int count, int popsize);
+
+  /**
+   * Gets the period.
+   *
+   * @return the period
+   */
   int get_period() {
     return this->period;
   }

@@ -1,0 +1,155 @@
+
+FRED Development Roadmap
+John Grefenstette
+Updated 22 Feb 2019
+
+
+===========================================================
+
+FRED Core Roadmap
+
+This section refers to plans for changes to FRED Core, consisting of the
+C++ source files in FRED/src and the scripts in FRED/bin.
+
+Continuous:
+- Documentation
+-- FRED/doc/Agent-Based Modeling with FRED.pdf
+-- FRED/doc/parameters_and_factors.txt
+-- FRED/etc/roadmap.txt (this document)
+
+Wish List:
+- Replace Travel with a Condition
+-- Eliminate Age_Map class
+- Add MSA as an Admin_Division
+-- include Term to test for MSA residence
+- Move Ages and Stages code from County to Demographics class
+- Move health and activities to Person class
+- Define Neighborhoods based on census_tracts
+- Rewrite Vector model
+- Healthcare Condition
+-- For dynamically selecting healthcare facilities
+- Climate layer
+-- Temp and humidity variation at county or MSA level
+- Sensitivity Analysis
+- Parallel processing
+-- fork multiple runs after reading input files
+-- fork on place type transmissions
+---- e.g. all Schools in parallel
+
+==============================
+
+March 2018:
+- Continuous state variables
+- API for external models
+
+June 2018
+- Abstract Place types
+- Ages and Stages for all locations
+- Recalibrate contact models
+
+Aug 2018
+- Eliminated Neighborhood, Classroom, Workplace, Office classes
+- Creat CHECK_PARAMETERS file on request
+
+Nov 2018
+- Speed up fred_make_csv_files
+
+Dec 2018
+- Network_Type as base class for Place_Type
+- Meta agents for importation and for place administrators
+- Personal variable in My Condition
+- Terms for time, date
+
+Jan 2019
+- Import agent for exogeneous exposure
+- Add term for head of household
+- Terms for day_of_week, day_of_month, hour of day
+- Create bad_params.txt for each run
+- Example model of agent adaptation using personal variables
+
+Feb 2019:
+- Hourly schedules for place types
+- Hourly schedules for agents
+- Schedule transitions at specific times, days
+- State-specific activity cancellation
+- Terms for testing agent location
+- Updated calibration methods
+- Allow transitions at specified day and time
+- Allow NOT in any propositional term
+- Allow AND in any propositional term
+
+March 2019:
+- Networks
+-- Generate initial networks with topological characteristics
+---- degree distr, betweeness, small-world, exponential
+-- Network properties for homophily
+---- biases for any personal var
+-- Network properties for duration
+-- Methods for init, selecting link, breaking link
+
+Jun 2019
+- Recalibrate contact models against target contact matrix
+
+Dec 2019
+- Complete documentation and training materials
+
+===========================================================
+
+FRED Web Roadmap
+
+This section refers to plans for changes to FRED Web.
+
+Version 1: Mar-2018
+- Users registration and workspace
+- Project creation
+- Shared Conditions
+- User-defined Conditions
+- Importation schedules
+- Job creation and submission
+- Data download
+- Initial plotting facility
+- Initial movie plotting facility
+- Transitions probabilities only
+- Explanatory text on each page
+
+Version 2:  Jun-2018
+- Documentation
+- Move Job, Plot and Movie tabs to Project
+- All movie options
+- All plotting options
+- "Simple" logit terms
+- Cleanup other info pages
+- Online documentation: How-tos
+- Add help popups
+
+Version 3: Aug-2018
+- All logit terms
+- Resources
+- Ages and Stages
+
+Version 4: Oct-2018
+- User-contributed conditions
+- User-contributed models (through access privileges)
+
+Version 5: Jun-2019
+- Networks
+
+Version 6: Sep-2019
+- User-defined contact parameters
+
+Version 7: Dec-2019 
+- Global synthetic population
+- Artificial locations
+
+Version 8:  Mar-2020
+- Climate layer
+- Vector layer
+- Healthcare layer
+
+Version 9:  Jun-2020
+- Experimental design
+- Calibration methods
+- Sensitivity analysis
+- Uncertainly analysis
+- Travel parameters
+

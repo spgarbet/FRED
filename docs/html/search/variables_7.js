@@ -1,0 +1,20 @@
+var searchData=
+[
+  ['has_5fadmin_2996',['has_admin',['../class_group___type.html#ad3b3951d9600803515172feab7e08b05',1,'Group_Type']]],
+  ['health_5frecords_5frun_2997',['Health_Records_Run',['../class_global.html#a9ec439b48e374a8655efd99008942120',1,'Global']]],
+  ['hh_5flabel_5fhosp_5flabel_5fmap_2998',['hh_label_hosp_label_map',['../class_place.html#a32c7f51daf3716e8f1f51aa68c6d9079',1,'Place']]],
+  ['higher_2999',['higher',['../class_admin___division.html#a75a097f5ca57ec36e39db4bd809aa242',1,'Admin_Division']]],
+  ['hosp_5flabel_5fhosp_5fid_5fmap_3000',['hosp_label_hosp_id_map',['../class_place.html#aff73698dc977d203e79b6a328e5c4e46',1,'Place']]],
+  ['hospital_5ffixed_5fstaff_3001',['Hospital_fixed_staff',['../class_place.html#ab85325f8cab6ef9babc04b531f317c61',1,'Place']]],
+  ['hospital_5fid_5fcurrent_5fassigned_5fsize_5fmap_3002',['Hospital_ID_current_assigned_size_map',['../class_place.html#a3f7c2d5b52ebb67b4490b403253dff4a',1,'Place']]],
+  ['hospital_5fid_5ftotal_5fassigned_5fsize_5fmap_3003',['Hospital_ID_total_assigned_size_map',['../class_place.html#a969105e946dbab588e6f7c5f1aa40245',1,'Place']]],
+  ['hospital_5foverall_5fpanel_5fsize_3004',['Hospital_overall_panel_size',['../class_place.html#a7a8d2af1e826979f0a66a46ee89fb8a1',1,'Place']]],
+  ['hospital_5fworker_5fto_5fbed_5fratio_3005',['Hospital_worker_to_bed_ratio',['../class_place.html#adfbfb15c85720000cf2b17e6b293fbf6',1,'Place']]],
+  ['hospitalization_5fradius_3006',['Hospitalization_radius',['../class_place.html#ad63bb39b7b71e7d9aa37033b9a4e53fd',1,'Place']]],
+  ['hospitals_3007',['hospitals',['../class_regional___patch.html#ac93071636d9d62b51b89d62d615f0b99',1,'Regional_Patch']]],
+  ['host_3008',['host',['../class_group.html#ab7a6c717a50b40e3036cabae81688a8c',1,'Group']]],
+  ['host_5fgroup_5fmap_3009',['host_group_map',['../class_group___type.html#a64e1ec0570b0993ecc19e4c0398bbba9',1,'Group_Type']]],
+  ['household_5fhospital_5fmap_5ffile_5fexists_3010',['Household_hospital_map_file_exists',['../class_place.html#aba26dad26e3c47a7e8218f27727ccecb',1,'Place']]],
+  ['household_5flabel_5fmap_3011',['household_label_map',['../class_place.html#a57575d753e05b2b5d6238ae266d18812',1,'Place']]],
+  ['households_3012',['households',['../class_admin___division.html#ae0e0618a0c661c1e57ae6b9e6c090319',1,'Admin_Division']]]
+];

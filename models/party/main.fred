@@ -1,0 +1,19 @@
+
+##### Simulated Location
+locations = Jefferson_County_PA
+# locations = Allegheny_County_PA
+
+##### Simulated Timeframe
+start_date = 2020-May-01
+end_date = 2020-Aug-15
+
+include party.fred
+include inf.fred
+include where.fred
+
+# enable_health_records = 1
+# enable_var_records = 1
+INF.enable_health_records = 1
+PARTY.enable_health_records = 1
+WHERE.enable_health_records = 1
+

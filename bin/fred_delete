@@ -95,7 +95,8 @@ sub delete_key {
   my $mykey = shift;
 
   # set locking semaphore
-  my $SEMAPHORE = "$dir/.results.lck";
+  my $SEMAPHORE = ($ENV{FRED_SEMAPHORE} || ".results.lck");
+  $SEMAPHORE = "$dir/$SEMAPHORE";
   open(SEM, ">$SEMAPHORE") || die "$0: failed to obtain semaphore: ($!)\n";
   flock(SEM, LOCK_EX);
 
