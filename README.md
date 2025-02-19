@@ -48,3 +48,9 @@ export PATH="$FRED_HOME/bin:${PATH}"
 export PATH="$FRED_HOME/pybin/bin:${PATH}"
 export FRED_GNUPLOT=<PATH TO GNUPLOT>   #e.g. /opt/local/bin/gnuplot
 ```
+
+#### Getting Started
+
+With a copy of FRED compiled, one is now ready to get started. Please see our
+documentation: [Agent-Based Modeling with FRED](docs/Agent-Based%20Modeling%20with%20FRED.docx),
+or the power point: [Structured FRED](docs/Structured%20FRED.pptm).
